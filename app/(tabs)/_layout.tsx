@@ -1,6 +1,6 @@
 import { useAppTheme } from '@/components/app-theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, usePathname } from 'expo-router';
+import { router, Tabs, usePathname } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -32,6 +32,11 @@ export default function TabLayout() {
     setActiveTab(currentTab);
   }, [pathname]);
 
+  const handleTabPress = (tabKey: string) => {
+    setActiveTab(tabKey);
+    router.push(`/(tabs)/${tabKey}`);
+  };
+
   return (
     <View style={styles.container}>
       <Tabs
@@ -56,9 +61,7 @@ export default function TabLayout() {
               <TouchableOpacity
                 key={tab.key}
                 style={styles.tabItem}
-                onPress={() => {
-                  setActiveTab(tab.key);
-                }}
+                onPress={() => handleTabPress(tab.key)}
                 activeOpacity={0.7}
               >
                 {isActive && (

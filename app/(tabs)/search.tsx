@@ -1,14 +1,15 @@
+import { useAppTheme } from '@/components/app-theme';
 import { AppView } from '@/components/app-view';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 // Mock data for demo
@@ -23,7 +24,8 @@ const mockTokens = [
     marketCap: 2500000,
     liquidity: 500000,
     dexId: 'raydium',
-    txns: { h24: { buys: 150, sells: 120 } },
+    transferHookEnabled: true,
+    confidentialTransferEnabled: false,
   },
   {
     mint: 'So11111111111111111111111111111111111111112',
@@ -35,47 +37,63 @@ const mockTokens = [
     marketCap: 45000000000,
     liquidity: 15000000,
     dexId: 'raydium',
-    txns: { h24: { buys: 2500, sells: 2300 } },
+    transferHookEnabled: false,
+    confidentialTransferEnabled: false,
   },
-];
-
-const mockPairs = [
   {
-    pairAddress: 'DEX2SOLPair123456789',
-    baseToken: { symbol: 'DEX2', name: 'Dex2.0 Token' },
-    quoteToken: { symbol: 'USDC', name: 'USD Coin' },
-    priceUsd: '0.25',
-    priceChange: { h24: 5.2 },
-    volume: { h24: 125000 },
-    liquidity: { usd: 500000 },
+    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    symbol: 'USDC',
+    name: 'USD Coin',
+    price: 1.00,
+    priceChangePercent24h: 0.1,
+    volume24h: 5000000,
+    marketCap: 30000000000,
+    liquidity: 20000000,
     dexId: 'raydium',
+    transferHookEnabled: true,
+    confidentialTransferEnabled: true,
   },
 ];
 
-const TokenCard = ({ token }: { token: any }) => {
+const TokenSearchResult = ({ token }: { token: any }) => {
+  const { theme } = useAppTheme();
   const isPositive = token.priceChangePercent24h >= 0;
 
   return (
-    <TouchableOpacity style={styles.tokenCard}>
+    <TouchableOpacity style={[styles.tokenResult, { backgroundColor: theme.colors.card }]}>
       <View style={styles.tokenHeader}>
         <View style={styles.tokenInfo}>
-          <View style={styles.tokenIcon}>
+          <View style={[styles.tokenIcon, { backgroundColor: theme.colors.primary }]}>
             <Text style={styles.tokenIconText}>
               {token.symbol.charAt(0)}
             </Text>
           </View>
           <View style={styles.tokenDetails}>
-            <Text style={styles.tokenSymbol}>{token.symbol}</Text>
-            <Text style={styles.tokenName}>{token.name}</Text>
+            <Text style={[styles.tokenSymbol, { color: theme.colors.text }]}>{token.symbol}</Text>
+            <Text style={[styles.tokenName, { color: theme.colors.muted }]}>{token.name}</Text>
+            <View style={styles.tokenFeatures}>
+              {token.transferHookEnabled && (
+                <View style={[styles.featureBadge, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+                  <Ionicons name="link" size={12} color={theme.colors.accent} />
+                  <Text style={[styles.featureText, { color: theme.colors.accent }]}>Hook</Text>
+                </View>
+              )}
+              {token.confidentialTransferEnabled && (
+                <View style={[styles.featureBadge, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                  <Ionicons name="eye-off" size={12} color={theme.colors.success} />
+                  <Text style={[styles.featureText, { color: theme.colors.success }]}>Private</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
         <View style={styles.priceInfo}>
-          <Text style={styles.price}>${token.price.toFixed(4)}</Text>
+          <Text style={[styles.price, { color: theme.colors.text }]}>${token.price.toFixed(4)}</Text>
           <View style={[styles.changeContainer, isPositive ? styles.positiveChange : styles.negativeChange]}>
             <Ionicons 
               name={isPositive ? 'trending-up' : 'trending-down'} 
               size={12} 
-              color={isPositive ? '#10b981' : '#ef4444'} 
+              color={isPositive ? theme.colors.success : theme.colors.error} 
             />
             <Text style={[styles.changeText, isPositive ? styles.positiveText : styles.negativeText]}>
               {isPositive ? '+' : ''}{token.priceChangePercent24h.toFixed(2)}%
@@ -84,22 +102,22 @@ const TokenCard = ({ token }: { token: any }) => {
         </View>
       </View>
 
-      <View style={styles.tokenStats}>
+      <View style={[styles.tokenStats, { borderTopColor: theme.colors.border }]}>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>Market Cap</Text>
-          <Text style={styles.statValue}>
+          <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Market Cap</Text>
+          <Text style={[styles.statValue, { color: theme.colors.text }]}>
             ${(token.marketCap / 1000000).toFixed(1)}M
           </Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>Volume 24h</Text>
-          <Text style={styles.statValue}>
+          <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Volume 24h</Text>
+          <Text style={[styles.statValue, { color: theme.colors.text }]}>
             ${(token.volume24h / 1000).toFixed(0)}K
           </Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>Liquidity</Text>
-          <Text style={styles.statValue}>
+          <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Liquidity</Text>
+          <Text style={[styles.statValue, { color: theme.colors.text }]}>
             ${(token.liquidity / 1000).toFixed(0)}K
           </Text>
         </View>
@@ -108,168 +126,120 @@ const TokenCard = ({ token }: { token: any }) => {
   );
 };
 
-const PairCard = ({ pair }: { pair: any }) => {
-  const isPositive = pair.priceChange.h24 >= 0;
-
-  return (
-    <TouchableOpacity style={styles.pairCard}>
-      <View style={styles.pairHeader}>
-        <View style={styles.pairTokens}>
-          <View style={styles.tokenPair}>
-            <View style={styles.tokenIcon}>
-              <Text style={styles.tokenIconText}>
-                {pair.baseToken.symbol.charAt(0)}
-              </Text>
-            </View>
-            <Text style={styles.tokenSymbol}>{pair.baseToken.symbol}</Text>
-          </View>
-          <Text style={styles.pairSeparator}>/</Text>
-          <View style={styles.tokenPair}>
-            <View style={styles.tokenIcon}>
-              <Text style={styles.tokenIconText}>
-                {pair.quoteToken.symbol.charAt(0)}
-              </Text>
-            </View>
-            <Text style={styles.tokenSymbol}>{pair.quoteToken.symbol}</Text>
-          </View>
-        </View>
-        <View style={styles.pairPrice}>
-          <Text style={styles.priceText}>${pair.priceUsd}</Text>
-          <Text style={[
-            styles.priceChange,
-            isPositive ? styles.positiveChange : styles.negativeChange
-          ]}>
-            {isPositive ? '+' : ''}{pair.priceChange.h24.toFixed(2)}%
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.pairStats}>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>Volume 24h</Text>
-          <Text style={styles.statValue}>
-            ${(pair.volume.h24 / 1000).toFixed(0)}K
-          </Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>Liquidity</Text>
-          <Text style={styles.statValue}>
-            ${(pair.liquidity.usd / 1000).toFixed(0)}K
-          </Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>DEX</Text>
-          <Text style={styles.statValue}>{pair.dexId.toUpperCase()}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-};
-
 export default function SearchScreen() {
+  const { theme } = useAppTheme();
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'tokens' | 'pairs'>('tokens');
+  const [filteredTokens, setFilteredTokens] = useState(mockTokens);
+  const [selectedFilter, setSelectedFilter] = useState('all');
 
-  const filteredTokens = mockTokens.filter(token => 
-    token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    token.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (query.trim() === '') {
+      setFilteredTokens(mockTokens);
+    } else {
+      const filtered = mockTokens.filter(token =>
+        token.symbol.toLowerCase().includes(query.toLowerCase()) ||
+        token.name.toLowerCase().includes(query.toLowerCase())
+      );
+      setFilteredTokens(filtered);
+    }
+  };
 
-  const filteredPairs = mockPairs.filter(pair => 
-    pair.baseToken.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    pair.baseToken.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleFilter = (filter: string) => {
+    setSelectedFilter(filter);
+    let filtered = mockTokens;
+    
+    switch (filter) {
+      case 'token2022':
+        filtered = mockTokens.filter(token => token.transferHookEnabled || token.confidentialTransferEnabled);
+        break;
+      case 'trending':
+        filtered = mockTokens.filter(token => Math.abs(token.priceChangePercent24h) > 3);
+        break;
+      case 'high-volume':
+        filtered = mockTokens.filter(token => token.volume24h > 1000000);
+        break;
+      default:
+        filtered = mockTokens;
+    }
+    
+    setFilteredTokens(filtered);
+  };
 
   const renderTokenItem = ({ item }: { item: any }) => (
-    <TokenCard token={item} />
-  );
-
-  const renderPairItem = ({ item }: { item: any }) => (
-    <PairCard pair={item} />
-  );
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons name="search" size={48} color="#9ca3af" />
-      <Text style={styles.emptyStateTitle}>
-        {searchQuery ? 'No results found' : 'Search for tokens'}
-      </Text>
-      <Text style={styles.emptyStateSubtitle}>
-        {searchQuery 
-          ? 'Try searching with different keywords'
-          : 'Enter a token name or symbol to get started'
-        }
-      </Text>
-    </View>
+    <TokenSearchResult token={item} />
   );
 
   return (
-    <AppView style={styles.container}>
-      {/* Search Header */}
-      <View style={styles.searchHeader}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search tokens, pairs, or addresses..."
-            placeholderTextColor="#9ca3af"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color="#6b7280" />
-            </TouchableOpacity>
-          )}
-        </View>
+    <AppView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Search Tokens</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
+          Discover Token-2022 assets and analyze market data
+        </Text>
       </View>
 
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'tokens' && styles.activeTab]}
-          onPress={() => setActiveTab('tokens')}
-        >
-          <Text style={[styles.tabText, activeTab === 'tokens' && styles.activeTabText]}>
-            Tokens ({filteredTokens.length})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'pairs' && styles.activeTab]}
-          onPress={() => setActiveTab('pairs')}
-        >
-          <Text style={[styles.tabText, activeTab === 'pairs' && styles.activeTabText]}>
-            Pairs ({filteredPairs.length})
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Search Results */}
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6366f1" />
-          <Text style={styles.loadingText}>Searching...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={activeTab === 'tokens' ? filteredTokens : filteredPairs}
-          renderItem={activeTab === 'tokens' ? renderTokenItem : renderPairItem}
-          keyExtractor={(item) => 
-            activeTab === 'tokens' 
-              ? item.mint
-              : item.pairAddress
-          }
-          horizontal={activeTab === 'tokens'}
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={activeTab === 'tokens' ? styles.tokensList : styles.pairsList}
-          ListEmptyComponent={renderEmptyState}
-          numColumns={activeTab === 'pairs' ? 1 : undefined}
+      {/* Search Bar */}
+      <View style={[styles.searchContainer, { backgroundColor: theme.colors.card }]}>
+        <Ionicons name="search" size={20} color={theme.colors.muted} style={styles.searchIcon} />
+        <TextInput
+          style={[styles.searchInput, { color: theme.colors.text }]}
+          placeholder="Search by symbol or name..."
+          placeholderTextColor={theme.colors.muted}
+          value={searchQuery}
+          onChangeText={handleSearch}
         />
-      )}
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => handleSearch('')}>
+            <Ionicons name="close-circle" size={20} color={theme.colors.muted} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Filters */}
+      <View style={styles.filtersContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {[
+            { key: 'all', label: 'All Tokens' },
+            { key: 'token2022', label: 'Token-2022' },
+            { key: 'trending', label: 'Trending' },
+            { key: 'high-volume', label: 'High Volume' },
+          ].map((filter) => (
+            <TouchableOpacity
+              key={filter.key}
+              style={[
+                styles.filterButton,
+                { backgroundColor: theme.colors.card },
+                selectedFilter === filter.key && { backgroundColor: theme.colors.primary }
+              ]}
+              onPress={() => handleFilter(filter.key)}
+            >
+              <Text style={[
+                styles.filterButtonText,
+                { color: selectedFilter === filter.key ? '#000000' : theme.colors.text }
+              ]}>
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Results */}
+      <View style={styles.resultsContainer}>
+        <Text style={[styles.resultsTitle, { color: theme.colors.text }]}>
+          {filteredTokens.length} tokens found
+        </Text>
+        
+        <FlatList
+          data={filteredTokens}
+          renderItem={renderTokenItem}
+          keyExtractor={(item) => item.mint}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.tokensList}
+        />
+      </View>
     </AppView>
   );
 }
@@ -277,22 +247,32 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
   },
-  searchHeader: {
+  header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    paddingTop: 50,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  subtitle: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   searchIcon: {
     marginRight: 12,
@@ -300,57 +280,42 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1f2937',
+    fontFamily: 'SpaceGrotesk-Regular',
   },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
+  filtersContainer: {
+    marginBottom: 16,
     paddingHorizontal: 20,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  activeTab: {
-    backgroundColor: '#eef2ff',
-  },
-  tabText: {
+  filterButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6b7280',
+    fontFamily: 'SpaceGrotesk-SemiBold',
   },
-  activeTabText: {
-    color: '#6366f1',
-  },
-  loadingContainer: {
+  resultsContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  loadingText: {
-    marginTop: 12,
+  resultsTitle: {
     fontSize: 16,
-    color: '#6b7280',
+    fontWeight: '600',
+    marginBottom: 16,
+    fontFamily: 'SpaceGrotesk-SemiBold',
   },
   tokensList: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingBottom: 100,
   },
-  pairsList: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  tokenCard: {
-    width: 280,
-    backgroundColor: '#ffffff',
+  tokenResult: {
     borderRadius: 16,
     padding: 16,
-    marginRight: 12,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -372,7 +337,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#6366f1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -381,6 +345,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
+    fontFamily: 'SpaceGrotesk-Bold',
   },
   tokenDetails: {
     flex: 1,
@@ -388,12 +353,30 @@ const styles = StyleSheet.create({
   tokenSymbol: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1f2937',
     marginBottom: 2,
+    fontFamily: 'SpaceGrotesk-Bold',
   },
   tokenName: {
     fontSize: 12,
-    color: '#6b7280',
+    marginBottom: 4,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  tokenFeatures: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  featureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 2,
+  },
+  featureText: {
+    fontSize: 10,
+    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk-SemiBold',
   },
   priceInfo: {
     alignItems: 'flex-end',
@@ -401,8 +384,8 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1f2937',
     marginBottom: 4,
+    fontFamily: 'SpaceGrotesk-Bold',
   },
   changeContainer: {
     flexDirection: 'row',
@@ -413,14 +396,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   positiveChange: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
   },
   negativeChange: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   changeText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk-SemiBold',
   },
   positiveText: {
     color: '#10b981',
@@ -433,7 +417,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
   },
   stat: {
     alignItems: 'center',
@@ -441,81 +424,12 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 10,
-    color: '#6b7280',
     marginBottom: 2,
+    fontFamily: 'SpaceGrotesk-Regular',
   },
   statValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1f2937',
-  },
-  pairCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  pairHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  pairTokens: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tokenPair: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pairSeparator: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginHorizontal: 8,
-  },
-  pairPrice: {
-    alignItems: 'flex-end',
-  },
-  priceText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 2,
-  },
-  priceChange: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  pairStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyStateSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 20,
+    fontFamily: 'SpaceGrotesk-SemiBold',
   },
 }); 

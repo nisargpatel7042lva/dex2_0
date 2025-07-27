@@ -1,50 +1,288 @@
-# Welcome to your Expo app 👋
+# DEX Screener - Token-2022 Analytics & Trading Platform
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A modern mobile application built with React Native and Expo that provides real-time analytics and trading capabilities for Token-2022 tokens on the Solana blockchain.
 
-## Get started
+## 🚀 Features
 
-1. Install dependencies
+### Token-2022 Program Features
+- **Transfer Hooks**: Programmable token transfers with custom logic
+- **Confidential Transfers**: Private token transfers with encryption
+- **Metadata Pointers**: Dynamic metadata linked to external sources
+- **Advanced Mint Management**: Full control over token creation and management
 
-   ```bash
-   npm install
-   ```
+### Mobile App Features
+- **Dark Theme UI**: Modern black-themed interface with Space Grotesk fonts
+- **Floating Navigation**: Custom animated bottom navigation bar
+- **Wallet Integration**: Seamless wallet connection and management
+- **Real-time Analytics**: Live market data and trading insights
+- **Portfolio Management**: Track and manage Token-2022 assets
+- **Airdrop Support**: Easy SOL airdrop requests for testing
 
-2. Start the app
+## 🏗️ Project Structure
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+dex2_0/
+├── app/                          # Expo Router app directory
+│   ├── (tabs)/                   # Tab navigation screens
+│   │   ├── index.tsx            # Home screen
+│   │   ├── portfolio.tsx        # Portfolio management
+│   │   ├── search.tsx           # Token search
+│   │   └── settings.tsx         # App settings
+│   ├── sign-in.tsx              # Wallet connection screen
+│   └── _layout.tsx              # Root layout
+├── components/                   # Reusable UI components
+│   ├── app-theme.tsx           # Theme configuration
+│   ├── app-providers.tsx       # Context providers
+│   └── auth/                   # Authentication components
+├── src/
+│   ├── context/
+│   │   └── AppContext.tsx      # Main app context
+│   ├── services/
+│   │   ├── WalletService.ts    # Wallet management
+│   │   ├── DEXService.ts       # DEX integration
+│   │   └── Token2022Service.ts # Token-2022 operations
+│   └── screens/                # Screen components
+├── programs/
+│   └── token-2022/             # Solana program
+│       ├── src/
+│       │   └── lib.rs          # Token-2022 smart contract
+│       └── Cargo.toml          # Rust dependencies
+├── assets/
+│   └── fonts/                  # Space Grotesk fonts
+└── android/                    # Android configuration
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🎨 Design System
 
-## Learn more
+### Colors
+- **Primary**: `#ffffff` (White for active elements)
+- **Background**: `#000000` (Pure black)
+- **Surface**: `#1a1a1a` (Dark gray for cards)
+- **Text**: `#ffffff` (White text)
+- **Muted**: `#666666` (Gray for secondary text)
+- **Success**: `#10b981` (Green)
+- **Error**: `#ef4444` (Red)
+- **Warning**: `#f59e0b` (Orange)
+- **Accent**: `#6366f1` (Indigo)
 
-To learn more about developing your project with Expo, look at the following resources:
+### Typography
+- **Font Family**: Space Grotesk
+- **Weights**: Regular, SemiBold, Bold
+- **Usage**: Consistent typography throughout the app
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 🔧 Smart Contract Features
 
-## Join the community
+### Token-2022 Program (`programs/token-2022/src/lib.rs`)
 
-Join our community of developers creating universal apps.
+#### Core Functions
+- `initialize_mint`: Create new Token-2022 mints with advanced features
+- `create_account`: Create Token-2022 accounts with transfer hook support
+- `transfer_with_hook`: Execute transfers with custom logic
+- `enable_confidential_transfers`: Enable private transfers
+- `confidential_transfer`: Perform encrypted transfers
+- `set_metadata_pointer`: Configure dynamic metadata
+- `mint_to`: Mint new tokens
+- `burn`: Burn tokens
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+#### Advanced Features
+1. **Transfer Hooks**: Custom logic executed on every transfer
+2. **Confidential Transfers**: Encrypted token transfers
+3. **Metadata Pointers**: Dynamic metadata from external sources
+4. **Event Tracking**: Comprehensive event logging
+5. **Error Handling**: Robust error management
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+ 
+- Yarn or npm
+- Expo CLI
+- Rust and Cargo (for smart contract development)
+- Solana CLI tools
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd dex2_0
+   ```
+
+2. **Install dependencies**
+   ```bash
+   yarn install
+   ```
+
+3. **Install Rust dependencies (for smart contract)**
+   ```bash
+   cd programs/token-2022
+   cargo build
+   cd ../..
+   ```
+
+4. **Start the development server**
+   ```bash
+   yarn start
+   ```
+
+### Environment Setup
+
+1. **Solana Configuration**
+   ```bash
+   solana config set --url devnet
+   ```
+
+2. **Build the smart contract**
+   ```bash
+   anchor build
+   ```
+
+3. **Deploy the program**
+   ```bash
+   anchor deploy
+   ```
+
+## 📱 App Usage
+
+### Wallet Connection
+1. Open the app
+2. Tap "Connect Demo Wallet" for testing
+3. Or import a private key for production use
+4. Request SOL airdrop for testing
+
+### Token-2022 Features
+1. **Create Tokens**: Initialize new Token-2022 mints
+2. **Transfer Hooks**: Set custom transfer logic
+3. **Confidential Transfers**: Enable private transfers
+4. **Metadata Management**: Configure dynamic metadata
+5. **Portfolio Tracking**: Monitor Token-2022 assets
+
+### Navigation
+- **Home**: Market overview and trending tokens
+- **Search**: Find and analyze tokens
+- **Portfolio**: Manage your Token-2022 assets
+- **Settings**: App configuration
+
+## 🔒 Security Features
+
+### Smart Contract Security
+- Comprehensive input validation
+- Authority checks for all operations
+- Secure transfer hook execution
+- Confidential transfer encryption
+- Event logging for audit trails
+
+### Mobile App Security
+- Secure wallet key management
+- Encrypted storage for sensitive data
+- Network security with HTTPS
+- Input sanitization and validation
+
+## 🧪 Testing
+
+### Smart Contract Tests
+```bash
+cd programs/token-2022
+cargo test
+```
+
+### Mobile App Tests
+```bash
+yarn test
+```
+
+### Integration Tests
+```bash
+yarn test:integration
+```
+
+## 📦 Deployment
+
+### Smart Contract Deployment
+1. Build the program
+   ```bash
+   anchor build
+   ```
+
+2. Deploy to devnet
+   ```bash
+   anchor deploy --provider.cluster devnet
+   ```
+
+3. Deploy to mainnet
+   ```bash
+   anchor deploy --provider.cluster mainnet
+   ```
+
+### Mobile App Deployment
+1. Build for production
+   ```bash
+   expo build:android
+   expo build:ios
+   ```
+
+2. Submit to app stores
+   ```bash
+   expo submit:android
+   expo submit:ios
+   ```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new features
+5. Submit a pull request
+
+### Code Style
+- Use TypeScript for type safety
+- Follow React Native best practices
+- Use Space Grotesk fonts consistently
+- Maintain dark theme design
+- Add comprehensive error handling
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+For support and questions:
+- Create an issue in the repository
+- Check the documentation
+- Review the smart contract code
+- Test with devnet first
+
+## 🔮 Roadmap
+
+### Phase 1 (Current)
+- ✅ Basic Token-2022 integration
+- ✅ Dark theme UI
+- ✅ Wallet connection
+- ✅ Portfolio management
+
+### Phase 2 (Next)
+- 🔄 Advanced transfer hooks
+- 🔄 Confidential transfer UI
+- 🔄 Metadata pointer management
+- 🔄 Real-time price feeds
+
+### Phase 3 (Future)
+- 📋 DEX integration
+- 📋 Advanced analytics
+- 📋 Social features
+- 📋 Cross-chain support
+
+## 🎯 Token-2022 Program ID
+
+The Token-2022 program is deployed at:
+```
+TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+```
+
+This is the official Solana Token-2022 program that provides advanced token features beyond the standard SPL Token program.
+
+---
+
+**Note**: This is a demonstration app for Token-2022 analytics and trading. Always test thoroughly on devnet before using on mainnet.
