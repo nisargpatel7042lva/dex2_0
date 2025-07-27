@@ -1,7 +1,9 @@
 import { useApp } from '@/src/context/AppContext';
+import { useMobileWallet } from './use-mobile-wallet';
 
 export function useWalletUi() {
   const { walletInfo, connectWallet, disconnectWallet, loading } = useApp();
+  const mobileWallet = useMobileWallet();
 
   return {
     account: walletInfo ? {
@@ -11,17 +13,9 @@ export function useWalletUi() {
     } : null,
     connect: connectWallet,
     disconnect: disconnectWallet,
-    signAndSendTransaction: async (transaction: any) => {
-      // Placeholder for demo
-      console.log('Sign and send transaction:', transaction);
-      return 'mock_signature_' + Date.now();
-    },
-    signIn: connectWallet,
-    signMessage: async (message: any) => {
-      // Placeholder for demo
-      console.log('Sign message:', message);
-      return new Uint8Array();
-    },
+    signAndSendTransaction: mobileWallet.signAndSendTransaction,
+    signIn: mobileWallet.signIn,
+    signMessage: mobileWallet.signMessage,
     isLoading: loading,
   };
 }

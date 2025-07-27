@@ -1,5 +1,4 @@
 import { useApp } from '@/src/context/AppContext';
-import { useMutation } from '@tanstack/react-query';
 import { createContext, type PropsWithChildren, useContext, useMemo } from 'react';
 
 export interface AuthState {
@@ -20,28 +19,21 @@ export function useAuth() {
   return value;
 }
 
-function useSignInMutation() {
-  const { connectWallet } = useApp();
-
-  return useMutation({
-    mutationFn: async () => {
-      await connectWallet();
-    },
-  });
-}
-
 export function AuthProvider({ children }: PropsWithChildren) {
   const { disconnectWallet, walletInfo } = useApp();
-  const signInMutation = useSignInMutation();
 
   const value: AuthState = useMemo(
     () => ({
-      signIn: async () => await signInMutation.mutateAsync(),
+      signIn: async () => {
+        // Wallet is already connected via WalletService.connectWallet()
+        // Just mark as authenticated
+        console.log('User authenticated');
+      },
       signOut: async () => await disconnectWallet(),
       isAuthenticated: walletInfo !== null,
-      isLoading: signInMutation.isPending,
+      isLoading: false,
     }),
-    [walletInfo, disconnectWallet, signInMutation],
+    [walletInfo, disconnectWallet],
   );
 
   return <Context.Provider value={value}>{children}</Context.Provider>;

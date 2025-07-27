@@ -1,9 +1,8 @@
 import { useAppTheme } from '@/components/app-theme';
-import { useAuth } from '@/components/auth/auth-provider';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,7 +17,6 @@ import {
 export default function SignIn() {
   const { theme } = useAppTheme();
   const { connectWallet, loading, error } = useApp();
-  const { signIn } = useAuth();
   const [loadingText, setLoadingText] = useState('');
 
   // Animation values
@@ -26,7 +24,7 @@ export default function SignIn() {
   const slideAnim = useState(new Animated.Value(50))[0];
   const logoScale = useState(new Animated.Value(0.8))[0];
 
-  useState(() => {
+  React.useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -51,13 +49,14 @@ export default function SignIn() {
     try {
       setLoadingText('Connecting to your wallet...');
       await connectWallet();
-      setLoadingText('Setting up your account...');
-      await signIn();
+      // Wallet connection automatically handles authentication
+      // No need for separate signIn() call
     } catch (error) {
       console.error('Error connecting wallet:', error);
+      
       Alert.alert(
         'Wallet Connection Error', 
-        'Demo wallet connected successfully! In a production app, this would connect to your real Solana wallet.',
+        'Failed to connect wallet. Please make sure you have a Solana wallet app installed (like Phantom, Solflare, or Slope) and try again.',
         [{ text: 'OK' }]
       );
     }
@@ -70,23 +69,52 @@ export default function SignIn() {
         style={styles.gradient}
       >
         {/* App Logo Section */}
-        <Animated.View style={[styles.logoSection, { opacity: fadeAnim, transform: [{ scale: logoScale }] }]}>
+        <Animated.View
+          style={[
+            styles.logoSection,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: logoScale }],
+            },
+          ]}
+        >
           <View style={styles.logoContainer}>
-            <Image source={require('../assets/images/icon.png')} style={styles.appLogo} />
+            <Image
+              source={require('../assets/images/icon.png')}
+              style={styles.appLogo}
+            />
           </View>
           <Text style={styles.appTitle}>DEX Screener</Text>
-          <Text style={styles.appSubtitle}>Token-2022 Analytics & Trading Platform</Text>
+          <Text style={styles.appSubtitle}>
+            Token-2022 Analytics & Trading Platform
+          </Text>
         </Animated.View>
 
         {/* Tagline Section */}
-        <Animated.View style={[styles.taglineSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View
+          style={[
+            styles.taglineSection,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
           <Text style={styles.tagline}>
             Discover the future of token trading with advanced analytics and revolutionary Token-2022 features
           </Text>
         </Animated.View>
 
         {/* Connect Wallet Section */}
-        <Animated.View style={[styles.walletSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View
+          style={[
+            styles.walletSection,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={handleConnectWallet}
@@ -100,26 +128,26 @@ export default function SignIn() {
               </View>
             ) : (
               <>
-                <Ionicons name="wallet" size={24} color="#000000" style={styles.buttonIcon} />
+                <Ionicons
+                  name="wallet"
+                  size={24}
+                  color="#000000"
+                  style={styles.buttonIcon}
+                />
                 <Text style={styles.primaryButtonText}>Connect Wallet</Text>
               </>
             )}
           </TouchableOpacity>
-          
-          {error && (
-            <Text style={styles.errorText}>
-              {error}
-            </Text>
-          )}
+          {error && <Text style={styles.errorText}>{error}</Text>}
         </Animated.View>
 
         {/* Footer */}
         <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
           <Text style={styles.footerText}>
-            Demo Mode - Using Solana Devnet for testing
+            Connect your Solana wallet to start trading
           </Text>
           <Text style={styles.footerSubtext}>
-            Experience the power of Token-2022 program
+            Sign the contract to connect your real wallet
           </Text>
         </Animated.View>
       </LinearGradient>
@@ -133,13 +161,13 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
-    justifyContent: 'space-between',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
   },
   logoSection: {
     alignItems: 'center',
-    marginTop: 40,
+    marginBottom: 60,
   },
   logoContainer: {
     width: 120,
@@ -148,12 +176,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    marginBottom: 20,
   },
   appLogo: {
     width: 80,
@@ -169,13 +192,12 @@ const styles = StyleSheet.create({
   },
   appSubtitle: {
     fontSize: 16,
-    color: '#cccccc',
+    color: '#888888',
     textAlign: 'center',
     fontFamily: 'SpaceGrotesk-Regular',
   },
   taglineSection: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    marginBottom: 60,
   },
   tagline: {
     fontSize: 18,
@@ -185,31 +207,34 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceGrotesk-Regular',
   },
   walletSection: {
-    alignItems: 'center',
+    width: '100%',
+    marginBottom: 60,
   },
   primaryButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#6366f1',
     paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 16,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#6366f1',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 16,
     elevation: 8,
-    minWidth: 200,
   },
   buttonIcon: {
     marginRight: 12,
   },
   primaryButtonText: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#000000',
-    fontFamily: 'SpaceGrotesk-Bold',
+    fontFamily: 'SpaceGrotesk-SemiBold',
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -217,34 +242,31 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    fontWeight: '600',
     color: '#000000',
     marginLeft: 12,
-    fontFamily: 'SpaceGrotesk-SemiBold',
+    fontFamily: 'SpaceGrotesk-Regular',
   },
   errorText: {
-    color: '#ff6b6b',
-    fontSize: 14,
+    color: '#ef4444',
     textAlign: 'center',
     marginTop: 16,
+    fontSize: 14,
     fontFamily: 'SpaceGrotesk-Regular',
   },
   footer: {
     alignItems: 'center',
-    paddingHorizontal: 20,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#888888',
     textAlign: 'center',
-    lineHeight: 18,
+    marginBottom: 8,
     fontFamily: 'SpaceGrotesk-Regular',
   },
   footerSubtext: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#666666',
     textAlign: 'center',
-    marginTop: 4,
     fontFamily: 'SpaceGrotesk-Regular',
   },
 });
