@@ -1,4 +1,3 @@
-import { AppNavigationGuard } from '@/components/app-navigation-guard'
 import { AppProviders } from '@/components/app-providers'
 import { PortalHost } from '@rn-primitives/portal'
 import { useFonts } from 'expo-font'
@@ -33,13 +32,11 @@ export default function RootLayout() {
   return (
     <View style={styles.container} onLayout={onLayoutRootView}>
       <AppProviders>
-        <AppNavigationGuard>
-          <Stack>
-            <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-        </AppNavigationGuard>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="sign-in" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="+not-found" />
+        </Stack>
         <PortalHost />
       </AppProviders>
       <StatusBar style="light" />
