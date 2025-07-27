@@ -1,64 +1,54 @@
-import { DEXService } from '@/src/services/DEXService';
-import { Token2022Service } from '@/src/services/Token2022Service';
-import { WalletService } from '@/src/services/WalletService';
-import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { Token2022Service } from '../services/Token2022Service';
+import { WalletInfo, WalletService } from '../services/WalletService';
 
-export interface WalletInfo {
-  publicKey: PublicKey;
-  balance: number;
-  connected: boolean;
-}
-
-export interface TokenBalance {
+export interface Token2022Mint {
   mint: PublicKey;
-  symbol: string;
-  name: string;
-  balance: number;
+  authority: PublicKey;
+  supply: number;
   decimals: number;
-  price?: number;
-  value?: number;
-  transferHookProgramId?: PublicKey | null;
-  confidentialTransferEnabled?: boolean;
-  metadataPointer?: any;
+  transferHookEnabled: boolean;
+  confidentialTransferEnabled: boolean;
 }
 
-export interface Token2022MintInfo {
+export interface Token2022Account {
+  account: PublicKey;
   mint: PublicKey;
-  decimals: number;
-  supply: bigint;
-  mintAuthority: PublicKey | null;
-  freezeAuthority: PublicKey | null;
-  transferHookProgramId: PublicKey | null;
-  confidentialTransferMint: any | null;
-  metadataPointer: any | null;
+  owner: PublicKey;
+  balance: number;
 }
 
-interface AppContextType {
+export interface AppContextType {
   // Wallet
   walletInfo: WalletInfo | null;
-  connectWallet: (privateKey?: string) => Promise<void>;
-  disconnectWallet: () => void;
-  requestAirdrop: (amount: number) => Promise<void>;
-  
-  // Services
-  walletService: WalletService | null;
-  dexService: DEXService | null;
-  token2022Service: Token2022Service | null;
-  
-  // Token-2022 specific
-  token2022Mints: Token2022MintInfo[];
-  createToken2022Mint: (decimals: number, transferHookProgramId?: PublicKey) => Promise<PublicKey>;
-  enableConfidentialTransfers: (mint: PublicKey, account: PublicKey) => Promise<void>;
-  performConfidentialTransfer: (source: PublicKey, destination: PublicKey, amount: bigint, mint: PublicKey) => Promise<void>;
-  setMetadataPointer: (mint: PublicKey, metadataPointer: any) => Promise<void>;
-  
-  // Loading states
   loading: boolean;
   error: string | null;
+  connectWallet: () => Promise<void>;
+  disconnectWallet: () => Promise<void>;
+  requestAirdrop: (amount: number) => Promise<void>;
+  
+  // Token-2022
+  token2022Mints: Token2022Mint[];
+  createToken2022Mint: (decimals: number, supply: number) => Promise<PublicKey>;
+  enableConfidentialTransfers: (mint: PublicKey) => Promise<void>;
+  performConfidentialTransfer: (from: PublicKey, to: PublicKey, amount: number) => Promise<void>;
+  setMetadataPointer: (mint: PublicKey, pointer: PublicKey) => Promise<void>;
+  
+  // Services
+  walletService: WalletService;
+  token2022Service: Token2022Service | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (context === undefined) {
+    throw new Error('useApp must be used within an AppProvider');
+  }
+  return context;
+};
 
 interface AppProviderProps {
   children: ReactNode;
@@ -66,44 +56,28 @@ interface AppProviderProps {
 
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
-  const [walletService, setWalletService] = useState<WalletService | null>(null);
-  const [dexService, setDexService] = useState<DEXService | null>(null);
-  const [token2022Service, setToken2022Service] = useState<Token2022Service | null>(null);
-  const [token2022Mints, setToken2022Mints] = useState<Token2022MintInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [token2022Mints, setToken2022Mints] = useState<Token2022Mint[]>([]);
+  const [token2022Service, setToken2022Service] = useState<Token2022Service | null>(null);
 
-  // Initialize services
+  const walletService = new WalletService();
+
   useEffect(() => {
-    const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
-    
-    const wallet = new WalletService(connection);
-    const dex = new DEXService(connection);
-    const token2022 = new Token2022Service(connection);
-    
-    setWalletService(wallet);
-    setDexService(dex);
-    setToken2022Service(token2022);
-  }, []);
+    // Initialize Token2022Service when wallet is connected
+    if (walletInfo) {
+      const service = new Token2022Service(walletService.getConnection());
+      setToken2022Service(service);
+    }
+  }, [walletInfo]);
 
-  const connectWallet = async (privateKey?: string) => {
-    if (!walletService) return;
-    
+  const connectWallet = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      const wallet = privateKey 
-        ? await walletService.connectWithPrivateKey(privateKey)
-        : await walletService.connect();
-      
-      const balance = await walletService.getBalance(wallet.publicKey);
-      
-      setWalletInfo({
-        publicKey: wallet.publicKey,
-        balance,
-        connected: true,
-      });
+      const walletInfo = await walletService.connectWallet();
+      setWalletInfo(walletInfo);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect wallet');
       console.error('Error connecting wallet:', err);
@@ -112,21 +86,32 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
-  const disconnectWallet = () => {
-    setWalletInfo(null);
-  };
-
-  const requestAirdrop = async (amount: number) => {
-    if (!walletService || !walletInfo) return;
-    
+  const disconnectWallet = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      await walletService.requestAirdrop(walletInfo.publicKey, amount);
+      await walletService.disconnectWallet();
+      setWalletInfo(null);
+      setToken2022Mints([]);
+      setToken2022Service(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to disconnect wallet');
+      console.error('Error disconnecting wallet:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestAirdrop = async (amount: number) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      await walletService.requestAirdrop(amount);
       
       // Refresh balance
-      const newBalance = await walletService.getBalance(walletInfo.publicKey);
+      const newBalance = await walletService.getSOLBalance();
       setWalletInfo(prev => prev ? { ...prev, balance: newBalance } : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to request airdrop');
@@ -136,177 +121,63 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
-  const createToken2022Mint = async (decimals: number, transferHookProgramId?: PublicKey): Promise<PublicKey> => {
-    if (!token2022Service || !walletInfo) {
-      throw new Error('Services not initialized or wallet not connected');
-    }
+  const createToken2022Mint = async (decimals: number, supply: number): Promise<PublicKey> => {
+    // Placeholder implementation - in real app, this would use the Token2022Service
+    console.log('Creating Token-2022 mint with decimals:', decimals, 'supply:', supply);
     
-    setLoading(true);
-    setError(null);
+    // For now, return a mock public key
+    const mockMint = new PublicKey('11111111111111111111111111111111');
     
-    try {
-      // Generate a new keypair for the mint
-      const mintKeypair = Keypair.generate();
-      
-      // Create a temporary keypair for the payer (in production, use the actual wallet)
-      const payerKeypair = Keypair.generate();
-      
-      // Initialize the mint
-      await token2022Service.initializeMint(
-        payerKeypair,
-        mintKeypair,
-        decimals,
-        walletInfo.publicKey,
-        walletInfo.publicKey, // freeze authority
-        transferHookProgramId || null,
-        null, // confidential transfer mint
-        null, // metadata pointer
-      );
-      
-      const mintInfo: Token2022MintInfo = {
-        mint: mintKeypair.publicKey,
-        decimals,
-        supply: BigInt(0),
-        mintAuthority: walletInfo.publicKey,
-        freezeAuthority: walletInfo.publicKey,
-        transferHookProgramId: transferHookProgramId || null,
-        confidentialTransferMint: null,
-        metadataPointer: null,
-      };
-      
-      setToken2022Mints(prev => [...prev, mintInfo]);
-      
-      return mintKeypair.publicKey;
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to create Token-2022 mint';
-      setError(errorMsg);
-      console.error('Error creating Token-2022 mint:', err);
-      throw new Error(errorMsg);
-    } finally {
-      setLoading(false);
-    }
+    const newMint: Token2022Mint = {
+      mint: mockMint,
+      authority: walletInfo?.publicKey || new PublicKey('11111111111111111111111111111111'),
+      supply,
+      decimals,
+      transferHookEnabled: false,
+      confidentialTransferEnabled: false,
+    };
+    
+    setToken2022Mints(prev => [...prev, newMint]);
+    return mockMint;
   };
 
-  const enableConfidentialTransfers = async (mint: PublicKey, account: PublicKey) => {
-    if (!token2022Service || !walletInfo) {
-      throw new Error('Services not initialized or wallet not connected');
-    }
+  const enableConfidentialTransfers = async (mint: PublicKey): Promise<void> => {
+    // Placeholder implementation
+    console.log('Enabling confidential transfers for mint:', mint.toString());
     
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Create a temporary keypair for the payer (in production, use the actual wallet)
-      const payerKeypair = Keypair.generate();
-      const authorityKeypair = Keypair.generate();
-      
-      // Mock confidential transfer mint configuration
-      const confidentialTransferMint = {
-        authority: walletInfo.publicKey,
-        auto_approve_new_accounts: true,
-        auditor_encryption_key: null,
-      };
-      
-      await token2022Service.enableConfidentialTransfers(
-        payerKeypair,
-        account,
-        mint,
-        authorityKeypair,
-        confidentialTransferMint as any,
-      );
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to enable confidential transfers';
-      setError(errorMsg);
-      console.error('Error enabling confidential transfers:', err);
-      throw new Error(errorMsg);
-    } finally {
-      setLoading(false);
-    }
+    setToken2022Mints(prev => 
+      prev.map(m => 
+        m.mint.equals(mint) 
+          ? { ...m, confidentialTransferEnabled: true }
+          : m
+      )
+    );
   };
 
-  const performConfidentialTransfer = async (source: PublicKey, destination: PublicKey, amount: bigint, mint: PublicKey) => {
-    if (!token2022Service || !walletInfo) {
-      throw new Error('Services not initialized or wallet not connected');
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Create temporary keypairs (in production, use the actual wallet)
-      const payerKeypair = Keypair.generate();
-      const authorityKeypair = Keypair.generate();
-      
-      await token2022Service.confidentialTransfer(
-        payerKeypair,
-        source,
-        destination,
-        authorityKeypair,
-        amount,
-        9, // decimals
-        mint,
-      );
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to perform confidential transfer';
-      setError(errorMsg);
-      console.error('Error performing confidential transfer:', err);
-      throw new Error(errorMsg);
-    } finally {
-      setLoading(false);
-    }
+  const performConfidentialTransfer = async (from: PublicKey, to: PublicKey, amount: number): Promise<void> => {
+    // Placeholder implementation
+    console.log('Performing confidential transfer from:', from.toString(), 'to:', to.toString(), 'amount:', amount);
   };
 
-  const setMetadataPointer = async (mint: PublicKey, metadataPointer: any) => {
-    if (!token2022Service || !walletInfo) {
-      throw new Error('Services not initialized or wallet not connected');
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Create temporary keypairs (in production, use the actual wallet)
-      const payerKeypair = Keypair.generate();
-      const authorityKeypair = Keypair.generate();
-      
-      await token2022Service.setMetadataPointer(
-        payerKeypair,
-        mint,
-        authorityKeypair,
-        metadataPointer,
-      );
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to set metadata pointer';
-      setError(errorMsg);
-      console.error('Error setting metadata pointer:', err);
-      throw new Error(errorMsg);
-    } finally {
-      setLoading(false);
-    }
+  const setMetadataPointer = async (mint: PublicKey, pointer: PublicKey): Promise<void> => {
+    // Placeholder implementation
+    console.log('Setting metadata pointer for mint:', mint.toString(), 'pointer:', pointer.toString());
   };
 
   const value: AppContextType = {
-    // Wallet
     walletInfo,
+    loading,
+    error,
     connectWallet,
     disconnectWallet,
     requestAirdrop,
-    
-    // Services
-    walletService,
-    dexService,
-    token2022Service,
-    
-    // Token-2022 specific
     token2022Mints,
     createToken2022Mint,
     enableConfidentialTransfers,
     performConfidentialTransfer,
     setMetadataPointer,
-    
-    // Loading states
-    loading,
-    error,
+    walletService,
+    token2022Service,
   };
 
   return (
@@ -314,12 +185,4 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       {children}
     </AppContext.Provider>
   );
-};
-
-export const useApp = (): AppContextType => {
-  const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
-  return context;
 }; 

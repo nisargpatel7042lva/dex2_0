@@ -1,5 +1,4 @@
 import { useAppTheme } from '@/components/app-theme';
-import { AppView } from '@/components/app-view';
 import { useAuth } from '@/components/auth/auth-provider';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -95,7 +94,6 @@ export default function SettingsScreen() {
   const { signOut } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(true);
 
   const handleDisconnect = () => {
     Alert.alert(
@@ -148,7 +146,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <AppView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
@@ -167,7 +165,7 @@ export default function SettingsScreen() {
               <View style={[styles.walletInfo, { backgroundColor: theme.colors.card }]}>
                 <View style={styles.walletHeader}>
                   <View style={[styles.walletIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                    <Ionicons name="wallet" size={24} color={theme.colors.accent} />
+                    <Ionicons name="wallet" size={24} color={theme.colors.primary} />
                   </View>
                   <View style={styles.walletDetails}>
                     <Text style={[styles.walletTitle, { color: theme.colors.text }]}>Connected Wallet</Text>
@@ -241,16 +239,6 @@ export default function SettingsScreen() {
             showSwitch
             switchValue={biometricEnabled}
             onSwitchChange={setBiometricEnabled}
-            showArrow={false}
-          />
-
-          <SettingItem
-            icon="moon-outline"
-            title="Dark Mode"
-            subtitle="Use dark theme throughout the app"
-            showSwitch
-            switchValue={darkModeEnabled}
-            onSwitchChange={setDarkModeEnabled}
             showArrow={false}
           />
         </View>
@@ -340,7 +328,7 @@ export default function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
-    </AppView>
+    </View>
   );
 }
 
@@ -357,7 +345,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    paddingTop: 50,
+    paddingTop: 60,
   },
   title: {
     fontSize: 24,
@@ -530,4 +518,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
-});
+}); 

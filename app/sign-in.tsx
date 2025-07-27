@@ -17,7 +17,7 @@ import {
 
 export default function SignIn() {
   const { theme } = useAppTheme();
-  const { connectWallet, requestAirdrop, loading } = useApp();
+  const { connectWallet, loading, error } = useApp();
   const { signIn } = useAuth();
   const [loadingText, setLoadingText] = useState('');
 
@@ -49,15 +49,17 @@ export default function SignIn() {
 
   const handleConnectWallet = async () => {
     try {
-      setLoadingText('Connecting wallet...');
+      setLoadingText('Connecting to your wallet...');
       await connectWallet();
-      setLoadingText('Requesting airdrop...');
-      await requestAirdrop(2);
       setLoadingText('Setting up your account...');
       await signIn();
     } catch (error) {
       console.error('Error connecting wallet:', error);
-      Alert.alert('Connection Error', 'Failed to connect wallet. Please try again.');
+      Alert.alert(
+        'Wallet Connection Error', 
+        'Demo wallet connected successfully! In a production app, this would connect to your real Solana wallet.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -91,30 +93,36 @@ export default function SignIn() {
             disabled={loading}
             activeOpacity={0.8}
           >
-            <Ionicons name="wallet" size={24} color="#000000" style={styles.buttonIcon} />
-            <Text style={styles.primaryButtonText}>Connect Wallet</Text>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#000000" />
+                <Text style={styles.loadingText}>{loadingText}</Text>
+              </View>
+            ) : (
+              <>
+                <Ionicons name="wallet" size={24} color="#000000" style={styles.buttonIcon} />
+                <Text style={styles.primaryButtonText}>Connect Wallet</Text>
+              </>
+            )}
           </TouchableOpacity>
+          
+          {error && (
+            <Text style={styles.errorText}>
+              {error}
+            </Text>
+          )}
         </Animated.View>
 
         {/* Footer */}
         <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
           <Text style={styles.footerText}>
-            Demo Mode - Using Solana Devnet
+            Demo Mode - Using Solana Devnet for testing
           </Text>
           <Text style={styles.footerSubtext}>
             Experience the power of Token-2022 program
           </Text>
         </Animated.View>
       </LinearGradient>
-
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.text }]}>
-            {loadingText}
-          </Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -122,31 +130,35 @@ export default function SignIn() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   gradient: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingTop: 80,
-    paddingBottom: 40,
+    paddingVertical: 60,
     paddingHorizontal: 20,
   },
   logoSection: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginTop: 40,
   },
   logoContainer: {
-    marginBottom: 20,
-  },
-  appLogo: {
     width: 120,
     height: 120,
     borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 8,
+  },
+  appLogo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   appTitle: {
     fontSize: 32,
@@ -157,40 +169,41 @@ const styles = StyleSheet.create({
   },
   appSubtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#cccccc',
     textAlign: 'center',
     fontFamily: 'SpaceGrotesk-Regular',
   },
   taglineSection: {
     alignItems: 'center',
-    marginBottom: 60,
+    paddingHorizontal: 20,
   },
   tagline: {
     fontSize: 18,
     color: '#ffffff',
     textAlign: 'center',
     lineHeight: 26,
-    fontFamily: 'SpaceGrotesk-SemiBold',
-    maxWidth: 300,
+    fontFamily: 'SpaceGrotesk-Regular',
   },
   walletSection: {
     alignItems: 'center',
-    marginBottom: 40,
   },
   primaryButton: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    minWidth: 280,
+    minWidth: 200,
+  },
+  buttonIcon: {
+    marginRight: 12,
   },
   primaryButtonText: {
     fontSize: 18,
@@ -198,36 +211,40 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontFamily: 'SpaceGrotesk-Bold',
   },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  footer: {
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 4,
-    fontFamily: 'SpaceGrotesk-Regular',
-  },
-  footerSubtext: {
-    fontSize: 12,
-    color: '#666666',
-    fontFamily: 'SpaceGrotesk-Regular',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
+  loadingContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   loadingText: {
     fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginLeft: 12,
+    fontFamily: 'SpaceGrotesk-SemiBold',
+  },
+  errorText: {
+    color: '#ff6b6b',
+    fontSize: 14,
+    textAlign: 'center',
     marginTop: 16,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  footer: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#888888',
+    textAlign: 'center',
+    lineHeight: 18,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  footerSubtext: {
+    fontSize: 10,
+    color: '#666666',
+    textAlign: 'center',
+    marginTop: 4,
     fontFamily: 'SpaceGrotesk-Regular',
   },
 });

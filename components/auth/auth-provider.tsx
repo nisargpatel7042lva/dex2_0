@@ -1,52 +1,48 @@
-import { Account, useAuthorization } from '@/components/solana/use-authorization'
-import { useMobileWallet } from '@/components/solana/use-mobile-wallet'
-import { AppConfig } from '@/constants/app-config'
-import { useMutation } from '@tanstack/react-query'
-import { createContext, type PropsWithChildren, useContext, useMemo } from 'react'
+import { useApp } from '@/src/context/AppContext';
+import { useMutation } from '@tanstack/react-query';
+import { createContext, type PropsWithChildren, useContext, useMemo } from 'react';
 
 export interface AuthState {
-  isAuthenticated: boolean
-  isLoading: boolean
-  signIn: () => Promise<Account>
-  signOut: () => Promise<void>
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  signIn: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
-const Context = createContext<AuthState | undefined>(undefined)
+const Context = createContext<AuthState | undefined>(undefined);
 
 export function useAuth() {
-  const value = useContext(Context)
+  const value = useContext(Context);
   if (!value) {
-    throw new Error('useAuth must be wrapped in a <AuthProvider />')
+    throw new Error('useAuth must be wrapped in a <AuthProvider />');
   }
 
-  return value
+  return value;
 }
 
 function useSignInMutation() {
-  const { signIn } = useMobileWallet()
+  const { connectWallet } = useApp();
 
   return useMutation({
-    mutationFn: async () =>
-      await signIn({
-        uri: AppConfig.uri,
-      }),
-  })
+    mutationFn: async () => {
+      await connectWallet();
+    },
+  });
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const { disconnect } = useMobileWallet()
-  const { accounts, isLoading } = useAuthorization()
-  const signInMutation = useSignInMutation()
+  const { disconnectWallet, walletInfo } = useApp();
+  const signInMutation = useSignInMutation();
 
   const value: AuthState = useMemo(
     () => ({
       signIn: async () => await signInMutation.mutateAsync(),
-      signOut: async () => await disconnect(),
-      isAuthenticated: (accounts?.length ?? 0) > 0,
-      isLoading: signInMutation.isPending || isLoading,
+      signOut: async () => await disconnectWallet(),
+      isAuthenticated: walletInfo !== null,
+      isLoading: signInMutation.isPending,
     }),
-    [accounts, disconnect, signInMutation, isLoading],
-  )
+    [walletInfo, disconnectWallet, signInMutation],
+  );
 
-  return <Context.Provider value={value}>{children}</Context.Provider>
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }

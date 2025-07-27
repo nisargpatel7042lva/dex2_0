@@ -1,8 +1,8 @@
 import { useAppTheme } from '@/components/app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Tabs, usePathname } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -16,7 +16,7 @@ interface TabItem {
 
 const tabs: TabItem[] = [
   { key: 'index', title: 'Home', icon: 'home-outline', iconSelected: 'home', screen: 'index' },
-  { key: 'search', title: 'Search', icon: 'search-outline', iconSelected: 'search', screen: 'search' },
+  { key: 'trading', title: 'Trade', icon: 'trending-up-outline', iconSelected: 'trending-up', screen: 'trading' },
   { key: 'portfolio', title: 'Portfolio', icon: 'pie-chart-outline', iconSelected: 'pie-chart', screen: 'portfolio' },
   { key: 'settings', title: 'Settings', icon: 'settings-outline', iconSelected: 'settings', screen: 'settings' },
 ];
@@ -25,56 +25,158 @@ export default function TabLayout() {
   const { theme } = useAppTheme();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState('index');
+  const [isAnimating, setIsAnimating] = useState(false);
+  
+  // Animation values
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Extract the current tab from pathname
     const currentTab = pathname.split('/').pop() || 'index';
     setActiveTab(currentTab);
   }, [pathname]);
 
+  const animateTransition = (direction: 'left' | 'right') => {
+    setIsAnimating(true);
+    
+    // Fade out current screen
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0.3,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: direction === 'left' ? -50 : 50,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Reset animations for next screen
+      slideAnim.setValue(direction === 'left' ? 50 : -50);
+      fadeAnim.setValue(0.3);
+      scaleAnim.setValue(0.95);
+      
+      // Animate in new screen
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setIsAnimating(false);
+      });
+    });
+  };
+
   const handleTabPress = (tabKey: string) => {
+    if (activeTab === tabKey || isAnimating) return;
+    
+    // Determine animation direction based on tab order
+    const currentIndex = tabs.findIndex(tab => tab.key === activeTab);
+    const newIndex = tabs.findIndex(tab => tab.key === tabKey);
+    const direction = newIndex > currentIndex ? 'left' : 'right';
+    
     setActiveTab(tabKey);
-    router.push(`/(tabs)/${tabKey}`);
+    animateTransition(direction);
+    
+    // Navigate to the new screen
+    if (tabKey === 'index') {
+      router.push('/(tabs)/');
+    } else {
+      router.push(`/(tabs)/${tabKey}`);
+    }
   };
 
   return (
     <View style={styles.container}>
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: { display: 'none' }, // Hide default tab bar
-        }}
+      <Animated.View 
+        style={[
+          styles.contentContainer,
+          {
+            opacity: fadeAnim,
+            transform: [
+              { translateX: slideAnim },
+              { scale: scaleAnim }
+            ]
+          }
+        ]}
       >
-        <Tabs.Screen name="index" />
-        <Tabs.Screen name="search" />
-        <Tabs.Screen name="portfolio" />
-        <Tabs.Screen name="settings" />
-      </Tabs>
-      
+        <Tabs
+          screenOptions={{
+            headerShown: false,
+            tabBarStyle: { display: 'none' }, // Hide default tab bar
+          }}
+        >
+          <Tabs.Screen name="index" />
+          <Tabs.Screen name="trading" />
+          <Tabs.Screen name="portfolio" />
+          <Tabs.Screen name="settings" />
+        </Tabs>
+      </Animated.View>
+
       {/* Custom Bottom Tab Bar */}
       <View style={styles.tabBarContainer}>
         <View style={styles.tabBar}>
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
-            
+
             return (
               <TouchableOpacity
                 key={tab.key}
                 style={styles.tabItem}
                 onPress={() => handleTabPress(tab.key)}
                 activeOpacity={0.7}
+                disabled={isAnimating}
               >
                 {isActive && (
-                  <View style={styles.activeIndicator} />
+                  <Animated.View 
+                    style={[
+                      styles.activeIndicator,
+                      {
+                        transform: [
+                          {
+                            scale: isActive ? 1 : 0.8
+                          }
+                        ]
+                      }
+                    ]} 
+                  />
                 )}
-                
+
                 <Ionicons
                   name={isActive ? tab.iconSelected : tab.icon}
                   size={22}
                   color={isActive ? '#fff' : '#666'}
-                  style={styles.tabIcon}
+                  style={[
+                    styles.tabIcon,
+                    {
+                      transform: [
+                        {
+                          scale: isActive ? 1.1 : 1
+                        }
+                      ]
+                    }
+                  ]}
                 />
-                
+
                 <Text style={[
                   styles.tabTitle,
                   isActive && styles.activeTabTitle
@@ -92,6 +194,9 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  contentContainer: {
     flex: 1,
   },
   tabBarContainer: {

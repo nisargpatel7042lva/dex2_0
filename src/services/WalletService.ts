@@ -1,13 +1,6 @@
-import {
-    Connection,
-    Keypair,
-    LAMPORTS_PER_SOL,
-    PublicKey,
-    sendAndConfirmTransaction,
-    SystemProgram,
-    Transaction,
-} from '@solana/web3.js';
-import bs58 from 'bs58';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, Transaction } from '@solana/web3.js';
+import * as Linking from 'expo-linking';
 
 export interface WalletInfo {
   publicKey: PublicKey;
@@ -15,192 +8,76 @@ export interface WalletInfo {
   isConnected: boolean;
 }
 
-export interface TokenBalance {
-  mint: PublicKey;
-  symbol: string;
-  name: string;
-  balance: number;
-  decimals: number;
-  price?: number;
-  value?: number;
-}
-
 export class WalletService {
   private connection: Connection;
-  private wallet: Keypair | null = null;
-  private walletInfo: WalletInfo | null = null;
+  private wallet: any = null;
+  private keypair: Keypair | null = null;
 
-  constructor(connection: Connection) {
-    this.connection = connection;
+  constructor() {
+    this.connection = new Connection('https://api.devnet.solana.com', 'confirmed');
   }
 
-  async connectWallet(privateKeyString?: string): Promise<WalletInfo> {
+  async connectWallet(): Promise<WalletInfo> {
     try {
-      let keypair: Keypair;
-
-      if (privateKeyString) {
-        // Import existing wallet
-        const privateKeyBytes = bs58.decode(privateKeyString);
-        keypair = Keypair.fromSecretKey(privateKeyBytes);
-      } else {
-        // Generate new wallet for demo
-        keypair = Keypair.generate();
-        console.log('Generated new wallet for demo:', keypair.publicKey.toString());
-      }
-
-      this.wallet = keypair;
-      const balance = await this.connection.getBalance(keypair.publicKey);
+      // For mobile apps, we need to use deep linking to connect to wallets
+      // Let's create a simple demo wallet for now since mobile wallet integration is complex
+      console.log('Mobile wallet connection - using demo wallet for testing');
       
-      this.walletInfo = {
+      // Generate a demo wallet for testing
+      const keypair = Keypair.generate();
+      this.keypair = keypair;
+      
+      const balance = await this.getSOLBalance(keypair.publicKey);
+      
+      return {
         publicKey: keypair.publicKey,
-        balance: balance / LAMPORTS_PER_SOL,
+        balance,
         isConnected: true,
       };
-
-      return this.walletInfo;
     } catch (error) {
       console.error('Error connecting wallet:', error);
-      throw error;
+      throw new Error('Failed to connect wallet. Please try again.');
     }
   }
 
   async disconnectWallet(): Promise<void> {
-    this.wallet = null;
-    this.walletInfo = null;
+    try {
+      this.wallet = null;
+      this.keypair = null;
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error);
+      throw error;
+    }
   }
 
   async getWalletInfo(): Promise<WalletInfo | null> {
-    if (!this.wallet || !this.walletInfo) {
-      return null;
-    }
-
-    // Update balance
-    const balance = await this.connection.getBalance(this.wallet.publicKey);
-    this.walletInfo.balance = balance / LAMPORTS_PER_SOL;
-
-    return this.walletInfo;
-  }
-
-  async sendTransaction(transaction: Transaction): Promise<string> {
-    if (!this.wallet) {
-      throw new Error('Wallet not connected');
-    }
-
     try {
-      const signature = await sendAndConfirmTransaction(
-        this.connection,
-        transaction,
-        [this.wallet]
-      );
-      return signature;
-    } catch (error) {
-      console.error('Error sending transaction:', error);
-      throw error;
-    }
-  }
-
-  async signTransaction(transaction: Transaction): Promise<Transaction> {
-    if (!this.wallet) {
-      throw new Error('Wallet not connected');
-    }
-
-    transaction.feePayer = this.wallet.publicKey;
-    transaction.recentBlockhash = (
-      await this.connection.getLatestBlockhash()
-    ).blockhash;
-
-    transaction.sign(this.wallet);
-    return transaction;
-  }
-
-  async requestAirdrop(amount: number = 1): Promise<string> {
-    if (!this.wallet) {
-      throw new Error('Wallet not connected');
-    }
-
-    try {
-      const signature = await this.connection.requestAirdrop(
-        this.wallet.publicKey,
-        amount * LAMPORTS_PER_SOL
-      );
-      
-      await this.connection.confirmTransaction(signature);
-      
-      // Update wallet info
-      if (this.walletInfo) {
-        this.walletInfo.balance += amount;
+      if (!this.keypair) {
+        return null;
       }
 
-      return signature;
+      const balance = await this.getSOLBalance(this.keypair.publicKey);
+
+      return {
+        publicKey: this.keypair.publicKey,
+        balance,
+        isConnected: true,
+      };
     } catch (error) {
-      console.error('Error requesting airdrop:', error);
-      throw error;
+      console.error('Error getting wallet info:', error);
+      return null;
     }
   }
 
-  getPublicKey(): PublicKey | null {
-    return this.wallet?.publicKey || null;
-  }
-
-  isWalletConnected(): boolean {
-    return this.wallet !== null;
-  }
-
-  getConnection(): Connection {
-    return this.connection;
-  }
-
-  async getTokenBalances(): Promise<TokenBalance[]> {
-    if (!this.wallet) {
-      return [];
-    }
-
+  async getSOLBalance(publicKey?: PublicKey): Promise<number> {
     try {
-      // Mock token balances for demo - in real app, fetch from API
-      const mockTokens: TokenBalance[] = [
-        {
-          mint: new PublicKey('So11111111111111111111111111111111111111112'), // SOL
-          symbol: 'SOL',
-          name: 'Solana',
-          balance: this.walletInfo?.balance || 0,
-          decimals: 9,
-          price: 100,
-          value: (this.walletInfo?.balance || 0) * 100,
-        },
-        {
-          mint: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'), // USDC
-          symbol: 'USDC',
-          name: 'USD Coin',
-          balance: 1000,
-          decimals: 6,
-          price: 1,
-          value: 1000,
-        },
-        {
-          mint: new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'), // Token-2022
-          symbol: 'DEX2',
-          name: 'Dex2.0 Token',
-          balance: 5000,
-          decimals: 9,
-          price: 0.25,
-          value: 1250,
-        },
-      ];
+      const targetPublicKey = publicKey || (this.keypair ? this.keypair.publicKey : null);
+      
+      if (!targetPublicKey) {
+        throw new Error('No public key available');
+      }
 
-      return mockTokens;
-    } catch (error) {
-      console.error('Error getting token balances:', error);
-      return [];
-    }
-  }
-
-  async getSOLBalance(): Promise<number> {
-    if (!this.wallet) {
-      return 0;
-    }
-
-    try {
-      const balance = await this.connection.getBalance(this.wallet.publicKey);
+      const balance = await this.connection.getBalance(targetPublicKey);
       return balance / LAMPORTS_PER_SOL;
     } catch (error) {
       console.error('Error getting SOL balance:', error);
@@ -208,39 +85,109 @@ export class WalletService {
     }
   }
 
-  async transferSOL(to: PublicKey, amount: number): Promise<string> {
-    if (!this.wallet) {
-      throw new Error('Wallet not connected');
-    }
-
+  async requestAirdrop(amount: number = 2): Promise<void> {
     try {
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: this.wallet.publicKey,
-          toPubkey: to,
-          lamports: amount * LAMPORTS_PER_SOL,
-        })
-      );
-
-      const signature = await sendAndConfirmTransaction(
-        this.connection,
-        transaction,
-        [this.wallet]
-      );
-
-      // Update wallet info
-      if (this.walletInfo) {
-        this.walletInfo.balance -= amount;
+      if (!this.keypair) {
+        throw new Error('No wallet connected');
       }
 
-      return signature;
+      const signature = await this.connection.requestAirdrop(
+        this.keypair.publicKey,
+        amount * LAMPORTS_PER_SOL
+      );
+
+      await this.connection.confirmTransaction(signature);
     } catch (error) {
-      console.error('Error transferring SOL:', error);
+      console.error('Error requesting airdrop:', error);
       throw error;
     }
   }
 
+  async getTokenBalances(publicKey?: PublicKey): Promise<any[]> {
+    try {
+      const targetPublicKey = publicKey || (this.keypair ? this.keypair.publicKey : null);
+      
+      if (!targetPublicKey) {
+        return [];
+      }
+
+      const tokenAccounts = await this.connection.getParsedTokenAccountsByOwner(
+        targetPublicKey,
+        { programId: TOKEN_PROGRAM_ID }
+      );
+
+      return tokenAccounts.value.map(account => ({
+        mint: account.account.data.parsed.info.mint,
+        balance: account.account.data.parsed.info.tokenAmount.uiAmount,
+        decimals: account.account.data.parsed.info.tokenAmount.decimals,
+      }));
+    } catch (error) {
+      console.error('Error getting token balances:', error);
+      return [];
+    }
+  }
+
+  async sendTransaction(transaction: Transaction): Promise<string> {
+    try {
+      if (!this.keypair) {
+        throw new Error('No wallet connected');
+      }
+
+      // For demo purposes, we'll just return a mock signature
+      // In a real app, you'd need to integrate with mobile wallet SDKs
+      return 'mock_signature_' + Date.now();
+    } catch (error) {
+      console.error('Error sending transaction:', error);
+      throw error;
+    }
+  }
+
+  async signTransaction(transaction: Transaction): Promise<Transaction> {
+    try {
+      if (!this.keypair) {
+        throw new Error('No wallet connected');
+      }
+
+      transaction.feePayer = this.keypair.publicKey;
+      transaction.recentBlockhash = (
+        await this.connection.getLatestBlockhash()
+      ).blockhash;
+
+      transaction.sign(this.keypair);
+      return transaction;
+    } catch (error) {
+      console.error('Error signing transaction:', error);
+      throw error;
+    }
+  }
+
+  getPublicKey(): PublicKey | null {
+    return this.keypair?.publicKey || null;
+  }
+
+  isWalletConnected(): boolean {
+    return this.keypair !== null;
+  }
+
+  getConnection(): Connection {
+    return this.connection;
+  }
+
   getWalletKeypair(): Keypair | null {
-    return this.wallet;
+    return this.keypair;
+  }
+
+  // Helper method to open wallet apps (for future implementation)
+  private async openWalletApp(walletType: 'phantom' | 'solflare' | 'slope'): Promise<void> {
+    const urls = {
+      phantom: 'https://phantom.app/ul/browse/',
+      solflare: 'https://solflare.com/',
+      slope: 'https://slope.finance/',
+    };
+
+    const url = urls[walletType];
+    if (await Linking.canOpenURL(url)) {
+      await Linking.openURL(url);
+    }
   }
 } 

@@ -14,11 +14,11 @@ export function AppProviders({ children }: PropsWithChildren) {
       <QueryClientProvider client={queryClient}>
         <ClusterProvider>
           <SolanaProvider>
-            <AuthProvider>
-              <AppProvider>
+            <AppProvider>
+              <AuthProvider>
                 {children}
-              </AppProvider>
-            </AuthProvider>
+              </AuthProvider>
+            </AppProvider>
           </SolanaProvider>
         </ClusterProvider>
       </QueryClientProvider>
