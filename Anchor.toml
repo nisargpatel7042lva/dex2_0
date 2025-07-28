@@ -33,6 +33,6 @@ shutdown_wait = 0
 [test.validator]
 url = "https://api.devnet.solana.com"
 
-[test.genesis]
-[test.genesis.address_labels]
-"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" = "SPL Token-2022" 
+[[test.genesis]]
+address = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+program = "spl-token-2022.so" 

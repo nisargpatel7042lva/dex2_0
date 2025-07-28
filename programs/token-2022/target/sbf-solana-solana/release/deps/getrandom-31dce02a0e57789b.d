@@ -1,0 +1,10 @@
+/home/kartik-vyas/Downloads/Project/dex2.0/programs/token-2022/target/sbf-solana-solana/release/deps/libgetrandom-31dce02a0e57789b.rmeta: /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/lib.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/error.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/util.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/custom.rs
+
+/home/kartik-vyas/Downloads/Project/dex2.0/programs/token-2022/target/sbf-solana-solana/release/deps/libgetrandom-31dce02a0e57789b.rlib: /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/lib.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/error.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/util.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/custom.rs
+
+/home/kartik-vyas/Downloads/Project/dex2.0/programs/token-2022/target/sbf-solana-solana/release/deps/getrandom-31dce02a0e57789b.d: /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/lib.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/error.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/util.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/custom.rs
+
+/home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/lib.rs:
+/home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/error.rs:
+/home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/util.rs:
+/home/kartik-vyas/.cargo/registry/src/index.crates.io-6f17d22bba15001f/getrandom-0.2.16/src/custom.rs:

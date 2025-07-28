@@ -1,0 +1,9 @@
+/home/kartik-vyas/Downloads/Project/dex2.0/programs/token-2022/target/debug/deps/libsolana_loader_v3_interface-49f08c0ccd39d7e5.rmeta: /home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/lib.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/instruction.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/state.rs
+
+/home/kartik-vyas/Downloads/Project/dex2.0/programs/token-2022/target/debug/deps/libsolana_loader_v3_interface-49f08c0ccd39d7e5.rlib: /home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/lib.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/instruction.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/state.rs
+
+/home/kartik-vyas/Downloads/Project/dex2.0/programs/token-2022/target/debug/deps/solana_loader_v3_interface-49f08c0ccd39d7e5.d: /home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/lib.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/instruction.rs /home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/state.rs
+
+/home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/lib.rs:
+/home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/instruction.rs:
+/home/kartik-vyas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-loader-v3-interface-5.0.0/src/state.rs:
