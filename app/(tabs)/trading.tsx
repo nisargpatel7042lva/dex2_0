@@ -5,14 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { PublicKey } from '@solana/web3.js';
 import { useState } from 'react';
 import {
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 interface TradingPool {
@@ -48,16 +48,16 @@ export default function TradingScreen() {
   const [isTokenAToB, setIsTokenAToB] = useState(true);
 
   // Convert pools to trading format
-  const tradingPools: TradingPool[] = pools.map(pool => ({
+  const tradingPools: TradingPool[] = (pools || []).map((pool, index) => ({
     pool: pool.pool.toString(),
-    tokenASymbol: 'TOKEN', // In real app, get from token metadata
+    tokenASymbol: `TOKEN${index + 1}`, // Better fallback with unique identifier
     tokenBSymbol: 'SOL',
     price: pool.tokenBReserves > 0 ? pool.tokenAReserves / pool.tokenBReserves : 0,
     priceChange24h: Math.random() * 20 - 10, // Mock data
     volume24h: Math.random() * 1000000 + 100000, // Mock data
-    liquidity: pool.totalLiquidity,
-    feeRate: pool.feeRate / 100, // Convert from basis points to percentage
-    isActive: pool.isActive,
+    liquidity: pool.totalLiquidity || 0,
+    feeRate: (pool.feeRate || 0) / 100, // Convert from basis points to percentage
+    isActive: pool.isActive || false,
   }));
 
   const onRefresh = async () => {
@@ -161,6 +161,7 @@ export default function TradingScreen() {
   });
 
   const formatNumber = (num: number) => {
+    if (!num || isNaN(num)) return '$0';
     if (num >= 1e9) return `$${(num / 1e9).toFixed(1)}B`;
     if (num >= 1e6) return `$${(num / 1e6).toFixed(1)}M`;
     if (num >= 1e3) return `$${(num / 1e3).toFixed(1)}K`;
@@ -168,6 +169,7 @@ export default function TradingScreen() {
   };
 
   const formatPrice = (price: number) => {
+    if (!price || isNaN(price)) return '0.00';
     if (price < 0.01) return price.toFixed(6);
     if (price < 1) return price.toFixed(4);
     return price.toFixed(2);
@@ -180,6 +182,8 @@ export default function TradingScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -202,19 +206,25 @@ export default function TradingScreen() {
             />
           </View>
           
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            style={styles.filterContainer}
+            contentContainerStyle={{ paddingRight: 20 }}
+          >
             {[
               { key: 'all', label: 'All' },
               { key: 'active', label: 'Active' },
               { key: 'trending', label: 'Trending' },
-            ].map(filter => (
+            ].map((filter, index) => (
               <TouchableOpacity
-                key={filter.key}
+                key={`filter-${filter.key}-${index}`}
                 style={[
                   styles.filterButton,
                   { backgroundColor: selectedFilter === filter.key ? theme.colors.primary : theme.colors.card },
                 ]}
                 onPress={() => setSelectedFilter(filter.key)}
+                activeOpacity={0.7}
               >
                 <Text style={[
                   styles.filterText,
@@ -322,65 +332,85 @@ export default function TradingScreen() {
         <View style={styles.poolsContainer}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Available Pools</Text>
           
-          {filteredPools.map((pool, index) => (
-            <TouchableOpacity
-              key={pool.pool}
-              style={[styles.poolCard, { backgroundColor: theme.colors.card }]}
-              onPress={() => handlePoolSelect(pool)}
-            >
-              <View style={styles.poolHeader}>
-                <View style={styles.poolTokens}>
-                  <Text style={[styles.poolPair, { color: theme.colors.text }]}>
-                    {pool.tokenASymbol}/{pool.tokenBSymbol}
-                  </Text>
-                  <Text style={[styles.poolFee, { color: theme.colors.muted }]}>
-                    {pool.feeRate}% fee
-                  </Text>
-                </View>
-                <View style={styles.poolStatus}>
-                  {pool.isActive ? (
-                    <View style={[styles.statusBadge, { backgroundColor: '#10b981' }]}>
-                      <Text style={styles.statusText}>Active</Text>
+          {loading ? (
+            <View style={[styles.emptyState, { backgroundColor: theme.colors.card }]}>
+              <Text style={[styles.emptyStateText, { color: theme.colors.muted }]}>
+                Loading pools...
+              </Text>
+            </View>
+          ) : (
+            <>
+              {filteredPools.length > 0 ? (
+                filteredPools.map((pool, index) => (
+                  <TouchableOpacity
+                    key={`${pool.pool}-${index}`}
+                    style={[styles.poolCard, { backgroundColor: theme.colors.card }]}
+                    onPress={() => handlePoolSelect(pool)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.poolHeader}>
+                      <View style={styles.poolTokens}>
+                        <Text style={[styles.poolPair, { color: theme.colors.text }]}>
+                          {pool.tokenASymbol}/{pool.tokenBSymbol}
+                        </Text>
+                        <Text style={[styles.poolFee, { color: theme.colors.muted }]}>
+                          {pool.feeRate}% fee
+                        </Text>
+                      </View>
+                      <View style={styles.poolStatus}>
+                        <View 
+                          style={[
+                            styles.statusBadge, 
+                            { backgroundColor: pool.isActive ? '#10b981' : '#ef4444' }
+                          ]}
+                        >
+                          <Text style={styles.statusText}>
+                            {pool.isActive ? 'Active' : 'Inactive'}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
-                  ) : (
-                    <View style={[styles.statusBadge, { backgroundColor: '#ef4444' }]}>
-                      <Text style={styles.statusText}>Inactive</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
 
-              <View style={styles.poolStats}>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Price</Text>
-                  <Text style={[styles.statValue, { color: theme.colors.text }]}>
-                    ${formatPrice(pool.price)}
+                    <View style={styles.poolStats}>
+                      <View style={styles.statItem}>
+                        <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Price</Text>
+                        <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                          ${formatPrice(pool.price)}
+                        </Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={[styles.statLabel, { color: theme.colors.muted }]}>24h Change</Text>
+                        <Text style={[
+                          styles.statValue,
+                          { color: pool.priceChange24h >= 0 ? '#10b981' : '#ef4444' }
+                        ]}>
+                          {pool.priceChange24h >= 0 ? '+' : ''}{pool.priceChange24h.toFixed(2)}%
+                        </Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Volume</Text>
+                        <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                          {formatNumber(pool.volume24h)}
+                        </Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Liquidity</Text>
+                        <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                          {formatNumber(pool.liquidity)}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={[styles.emptyState, { backgroundColor: theme.colors.card }]}>
+                  <Text style={[styles.emptyStateText, { color: theme.colors.muted }]}>
+                    No pools found
                   </Text>
                 </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statLabel, { color: theme.colors.muted }]}>24h Change</Text>
-                  <Text style={[
-                    styles.statValue,
-                    { color: pool.priceChange24h >= 0 ? '#10b981' : '#ef4444' }
-                  ]}>
-                    {pool.priceChange24h >= 0 ? '+' : ''}{pool.priceChange24h.toFixed(2)}%
-                  </Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Volume</Text>
-                  <Text style={[styles.statValue, { color: theme.colors.text }]}>
-                    {formatNumber(pool.volume24h)}
-                  </Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Liquidity</Text>
-                  <Text style={[styles.statValue, { color: theme.colors.text }]}>
-                    {formatNumber(pool.liquidity)}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              )}
+            </>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -607,5 +637,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-SemiBold',
+  },
+  emptyState: {
+    padding: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk-Regular',
+    textAlign: 'center',
   },
 }); 
