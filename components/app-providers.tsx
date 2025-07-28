@@ -2,6 +2,7 @@ import { AppTheme } from '@/components/app-theme'
 import { AuthProvider } from '@/components/auth/auth-provider'
 import { SolanaProvider } from '@/components/solana/solana-provider'
 import { AppProvider } from '@/src/context/AppContext'
+import { NotificationProvider } from '@/src/context/NotificationContext'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PropsWithChildren } from 'react'
 import { ClusterProvider } from './cluster/cluster-provider'
@@ -15,9 +16,11 @@ export function AppProviders({ children }: PropsWithChildren) {
         <ClusterProvider>
           <SolanaProvider>
             <AppProvider>
-              <AuthProvider>
-                {children}
-              </AuthProvider>
+              <NotificationProvider>
+                <AuthProvider>
+                  {children}
+                </AuthProvider>
+              </NotificationProvider>
             </AppProvider>
           </SolanaProvider>
         </ClusterProvider>

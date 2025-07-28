@@ -4,19 +4,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 export default function SignIn() {
   const { theme } = useAppTheme();
-  const { connectWallet, loading, error } = useApp();
+  const { connectWallet, loading, error, servicesInitialized } = useApp();
   const [loadingText, setLoadingText] = useState('');
 
   // Animation values
@@ -116,15 +116,23 @@ export default function SignIn() {
           ]}
         >
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[
+              styles.primaryButton,
+              !servicesInitialized && { backgroundColor: '#666666', opacity: 0.6 }
+            ]}
             onPress={handleConnectWallet}
-            disabled={loading}
+            disabled={loading || !servicesInitialized}
             activeOpacity={0.8}
           >
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#000000" />
                 <Text style={styles.loadingText}>{loadingText}</Text>
+              </View>
+            ) : !servicesInitialized ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#000000" />
+                <Text style={styles.loadingText}>Initializing services...</Text>
               </View>
             ) : (
               <>
@@ -139,6 +147,11 @@ export default function SignIn() {
             )}
           </TouchableOpacity>
           {error && <Text style={styles.errorText}>{error}</Text>}
+          {!servicesInitialized && !error && (
+            <Text style={[styles.errorText, { color: '#f59e0b' }]}>
+              Please wait while we initialize the trading services...
+            </Text>
+          )}
         </Animated.View>
 
         {/* Footer */}

@@ -1,5 +1,8 @@
 import { useAppTheme } from '@/components/app-theme';
+import { NotificationButton } from '@/components/NotificationButton';
+import { NotificationModal } from '@/components/NotificationModal';
 import { useApp } from '@/src/context/AppContext';
+import { useNotifications } from '@/src/context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
@@ -15,7 +18,9 @@ import {
 export default function HomeScreen() {
   const { theme } = useAppTheme();
   const { walletInfo, requestAirdrop } = useApp();
+  const { addNotification } = useNotifications();
   const [refreshing, setRefreshing] = useState(false);
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -26,9 +31,44 @@ export default function HomeScreen() {
   const handleRequestAirdrop = async () => {
     try {
       await requestAirdrop(2);
+      
+      // Add notification for successful airdrop
+      addNotification({
+        type: 'airdrop',
+        title: 'Airdrop Received!',
+        message: 'You have successfully received 2 SOL airdrop to your wallet.',
+      });
     } catch (error) {
       console.error('Error requesting airdrop:', error);
+      
+      // Add notification for failed airdrop
+      addNotification({
+        type: 'system',
+        title: 'Airdrop Failed',
+        message: 'Failed to request airdrop. Please try again later.',
+      });
     }
+  };
+
+  // Add sample notifications for testing
+  const addSampleNotifications = () => {
+    addNotification({
+      type: 'transaction',
+      title: 'Transaction Confirmed',
+      message: 'Your SOL transfer of 0.5 SOL has been confirmed on the blockchain.',
+    });
+    
+    addNotification({
+      type: 'trade',
+      title: 'Trade Executed',
+      message: 'Successfully swapped 100 USDC for 0.25 SOL at $400 per SOL.',
+    });
+    
+    addNotification({
+      type: 'price_alert',
+      title: 'Price Alert',
+      message: 'SOL price has increased by 5% in the last hour. Current price: $420.',
+    });
   };
 
   // Mock data for recent Token-2022 launches
@@ -73,25 +113,13 @@ export default function HomeScreen() {
       id: '4',
       name: 'SRM-2022',
       symbol: 'SRM',
-      description: 'Serum with permissionless hook approval',
+      description: 'Serum with confidential transfers',
       launchDate: '2024-01-12',
-      transferHookEnabled: true,
+      transferHookEnabled: false,
       confidentialTransferEnabled: true,
-      volume24h: '$5.2M',
-      priceChange: '-2.15%',
+      volume24h: '$15.3M',
+      priceChange: '-1.2%',
       isPositive: false,
-    },
-    {
-      id: '5',
-      name: 'ORCA-2022',
-      symbol: 'ORCA',
-      description: 'Orca with proxy token wrappers',
-      launchDate: '2024-01-11',
-      transferHookEnabled: true,
-      confidentialTransferEnabled: false,
-      volume24h: '$3.8M',
-      priceChange: '+8.92%',
-      isPositive: true,
     },
   ];
 
@@ -118,7 +146,7 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <View>
+            <View style={styles.headerLeft}>
               <Text style={[styles.greeting, { color: theme.colors.text }]}>
                 Welcome Back!
               </Text>
@@ -126,12 +154,11 @@ export default function HomeScreen() {
                 Trade Token-2022 with Transfer Hooks
               </Text>
             </View>
-            <Pressable 
-              style={[styles.notificationButton, { backgroundColor: theme.colors.card }]}
-              android_ripple={{ color: 'rgba(99, 102, 241, 0.1)', borderless: true }}
-            >
-              <Ionicons name="notifications-outline" size={24} color={theme.colors.primary} />
-            </Pressable>
+            <NotificationButton
+              onPress={() => setNotificationModalVisible(true)}
+              backgroundColor={theme.colors.card}
+              iconColor={theme.colors.primary}
+            />
           </View>
 
           {/* Wallet Info Card */}
@@ -154,14 +181,25 @@ export default function HomeScreen() {
                   {walletInfo.balance.toFixed(4)} SOL
                 </Text>
               </View>
-              <Pressable 
-                style={[styles.airdropButton, { backgroundColor: theme.colors.primary }]}
-                onPress={handleRequestAirdrop}
-                android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: false }}
-              >
-                <Ionicons name="add-circle-outline" size={16} color="#000" />
-                <Text style={[styles.airdropText, { color: '#000' }]}>Request Airdrop</Text>
-              </Pressable>
+              <View style={styles.walletActions}>
+                <Pressable 
+                  style={[styles.airdropButton, { backgroundColor: theme.colors.primary }]}
+                  onPress={handleRequestAirdrop}
+                  android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: false }}
+                >
+                  <Ionicons name="add-circle-outline" size={16} color="#000" />
+                  <Text style={[styles.airdropText, { color: '#000' }]}>Request Airdrop</Text>
+                </Pressable>
+                
+                <Pressable 
+                  style={[styles.sampleButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+                  onPress={addSampleNotifications}
+                  android_ripple={{ color: 'rgba(99, 102, 241, 0.1)', borderless: false }}
+                >
+                  <Ionicons name="notifications" size={16} color={theme.colors.primary} />
+                  <Text style={[styles.sampleButtonText, { color: theme.colors.primary }]}>Add Sample</Text>
+                </Pressable>
+              </View>
             </View>
           )}
         </View>
@@ -217,9 +255,9 @@ export default function HomeScreen() {
         {/* Recent Token-2022 Launches */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Token-2022 Launches</Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Launches</Text>
             <TouchableOpacity>
-              <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>View All</Text>
+              <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</Text>
             </TouchableOpacity>
           </View>
           
@@ -312,6 +350,12 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Notification Modal */}
+      <NotificationModal
+        visible={notificationModalVisible}
+        onClose={() => setNotificationModalVisible(false)}
+      />
     </View>
   );
 }
@@ -337,6 +381,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 20,
   },
+  headerLeft: {
+    flex: 1,
+    marginRight: 16,
+  },
   greeting: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -346,18 +394,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     fontFamily: 'SpaceGrotesk-Regular',
-  },
-  notificationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   walletCard: {
     borderRadius: 16,
@@ -407,7 +443,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
   },
+  walletActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   airdropButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -416,6 +457,21 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   airdropText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+    fontFamily: 'SpaceGrotesk-SemiBold',
+  },
+  sampleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  sampleButtonText: {
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 6,
@@ -444,13 +500,12 @@ const styles = StyleSheet.create({
   marketGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   marketCard: {
     width: '48%',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -464,7 +519,7 @@ const styles = StyleSheet.create({
   },
   marketCardTitle: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     marginLeft: 6,
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
@@ -483,13 +538,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   launchItem: {
-    borderRadius: 16,
     padding: 16,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 4,
+    elevation: 2,
   },
   launchHeader: {
     flexDirection: 'row',
@@ -511,7 +566,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   tokenSymbol: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
   },
@@ -560,20 +615,19 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '500',
     marginLeft: 4,
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   featuresGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   featureCard: {
     width: '48%',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -597,9 +651,9 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   featureSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 16,
     fontFamily: 'SpaceGrotesk-Regular',
   },
 });

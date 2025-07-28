@@ -1,9 +1,11 @@
 import { useAppTheme } from '@/components/app-theme';
 import { useApp } from '@/src/context/AppContext';
+import { useNotifications } from '@/src/context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { PublicKey } from '@solana/web3.js';
+import { useState } from 'react';
 import {
-    Animated,
+    Alert,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -13,142 +15,50 @@ import {
     View,
 } from 'react-native';
 
-interface Token2022Coin {
-  id: string;
-  name: string;
-  symbol: string;
+interface TradingPool {
+  pool: string;
+  tokenASymbol: string;
+  tokenBSymbol: string;
   price: number;
   priceChange24h: number;
   volume24h: number;
-  marketCap: number;
-  transferHookEnabled: boolean;
-  confidentialTransferEnabled: boolean;
   liquidity: number;
-  launchDate: string;
-  description: string;
+  feeRate: number;
+  isActive: boolean;
 }
 
 export default function TradingScreen() {
   const { theme } = useAppTheme();
-  const { walletInfo } = useApp();
+  const { 
+    walletInfo, 
+    pools, 
+    getSwapQuote, 
+    executeSwap, 
+    addLiquidity,
+    loading 
+  } = useApp();
+  const { addNotification } = useNotifications();
+  
   const [searchQuery, setSearchQuery] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedPool, setSelectedPool] = useState<TradingPool | null>(null);
+  const [swapAmount, setSwapAmount] = useState('');
+  const [swapQuote, setSwapQuote] = useState<any>(null);
+  const [isTokenAToB, setIsTokenAToB] = useState(true);
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-
-  useEffect(() => {
-    // Entrance animation
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  // Mock data for Token-2022 coins
-  const token2022Coins: Token2022Coin[] = [
-    {
-      id: '1',
-      name: 'USDC-2022',
-      symbol: 'USDC',
-      price: 1.00,
-      priceChange24h: 0.02,
-      volume24h: 45200000,
-      marketCap: 2500000000,
-      transferHookEnabled: true,
-      confidentialTransferEnabled: false,
-      liquidity: 15000000,
-      launchDate: '2024-01-15',
-      description: 'USD Coin with Transfer Hooks enabled for advanced trading',
-    },
-    {
-      id: '2',
-      name: 'SOL-2022',
-      symbol: 'SOL',
-      price: 98.45,
-      priceChange24h: 5.23,
-      volume24h: 23100000,
-      marketCap: 45000000000,
-      transferHookEnabled: true,
-      confidentialTransferEnabled: true,
-      liquidity: 85000000,
-      launchDate: '2024-01-14',
-      description: 'Solana with advanced metadata pointers and confidential transfers',
-    },
-    {
-      id: '3',
-      name: 'RAY-2022',
-      symbol: 'RAY',
-      price: 2.85,
-      priceChange24h: 12.45,
-      volume24h: 8700000,
-      marketCap: 850000000,
-      transferHookEnabled: true,
-      confidentialTransferEnabled: false,
-      liquidity: 25000000,
-      launchDate: '2024-01-13',
-      description: 'Raydium with custom transfer logic and hook approval',
-    },
-    {
-      id: '4',
-      name: 'SRM-2022',
-      symbol: 'SRM',
-      price: 0.45,
-      priceChange24h: -2.15,
-      volume24h: 5200000,
-      marketCap: 180000000,
-      transferHookEnabled: true,
-      confidentialTransferEnabled: true,
-      liquidity: 12000000,
-      launchDate: '2024-01-12',
-      description: 'Serum with permissionless hook approval system',
-    },
-    {
-      id: '5',
-      name: 'ORCA-2022',
-      symbol: 'ORCA',
-      price: 3.25,
-      priceChange24h: 8.92,
-      volume24h: 3800000,
-      marketCap: 320000000,
-      transferHookEnabled: true,
-      confidentialTransferEnabled: false,
-      liquidity: 18000000,
-      launchDate: '2024-01-11',
-      description: 'Orca with proxy token wrappers and AMM integration',
-    },
-    {
-      id: '6',
-      name: 'BONK-2022',
-      symbol: 'BONK',
-      price: 0.0000125,
-      priceChange24h: 15.67,
-      volume24h: 2800000,
-      marketCap: 85000000,
-      transferHookEnabled: true,
-      confidentialTransferEnabled: false,
-      liquidity: 8500000,
-      launchDate: '2024-01-10',
-      description: 'Bonk with meme token transfer hooks and community features',
-    },
-  ];
+  // Convert pools to trading format
+  const tradingPools: TradingPool[] = pools.map(pool => ({
+    pool: pool.pool.toString(),
+    tokenASymbol: 'TOKEN', // In real app, get from token metadata
+    tokenBSymbol: 'SOL',
+    price: pool.tokenBReserves > 0 ? pool.tokenAReserves / pool.tokenBReserves : 0,
+    priceChange24h: Math.random() * 20 - 10, // Mock data
+    volume24h: Math.random() * 1000000 + 100000, // Mock data
+    liquidity: pool.totalLiquidity,
+    feeRate: pool.feeRate / 100, // Convert from basis points to percentage
+    isActive: pool.isActive,
+  }));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -156,19 +66,96 @@ export default function TradingScreen() {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const handleTrade = (coin: Token2022Coin) => {
-    // TODO: Implement trading logic
-    console.log('Trade:', coin.symbol);
+  const handlePoolSelect = (pool: TradingPool) => {
+    setSelectedPool(pool);
+    setSwapAmount('');
+    setSwapQuote(null);
   };
 
-  const filteredCoins = token2022Coins.filter(coin => {
-    const matchesSearch = coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         coin.symbol.toLowerCase().includes(searchQuery.toLowerCase());
+  const handleSwapAmountChange = (amount: string) => {
+    setSwapAmount(amount);
+    
+    if (selectedPool && amount && !isNaN(Number(amount))) {
+      const poolAddress = new PublicKey(selectedPool.pool);
+      const quote = getSwapQuote(poolAddress, Number(amount), isTokenAToB);
+      setSwapQuote(quote);
+    } else {
+      setSwapQuote(null);
+    }
+  };
+
+  const handleSwap = async () => {
+    if (!selectedPool || !swapAmount || !swapQuote || !walletInfo) {
+      Alert.alert('Error', 'Please select a pool and enter a valid amount');
+      return;
+    }
+
+    try {
+      const poolAddress = new PublicKey(selectedPool.pool);
+      const amountIn = Number(swapAmount);
+      const minAmountOut = swapQuote.amountOut * (1 - swapQuote.slippage / 100);
+
+      const signature = await executeSwap(poolAddress, amountIn, minAmountOut, isTokenAToB);
+      
+      addNotification({
+        type: 'trade',
+        title: 'Swap Executed',
+        message: `Successfully swapped ${amountIn} ${isTokenAToB ? selectedPool.tokenASymbol : selectedPool.tokenBSymbol} for ${swapQuote.amountOut.toFixed(6)} ${isTokenAToB ? selectedPool.tokenBSymbol : selectedPool.tokenASymbol}`,
+        data: { signature, pool: selectedPool.pool }
+      });
+
+      setSwapAmount('');
+      setSwapQuote(null);
+    } catch (error) {
+      console.error('Swap error:', error);
+      addNotification({
+        type: 'trade',
+        title: 'Swap Failed',
+        message: error instanceof Error ? error.message : 'Failed to execute swap',
+        data: { pool: selectedPool.pool }
+      });
+    }
+  };
+
+  const handleAddLiquidity = async () => {
+    if (!selectedPool || !walletInfo) {
+      Alert.alert('Error', 'Please select a pool first');
+      return;
+    }
+
+    try {
+      const poolAddress = new PublicKey(selectedPool.pool);
+      // Mock liquidity amounts - in real app, get from user input
+      const tokenAAmount = 1000;
+      const tokenBAmount = 10;
+      const minLpTokens = 100;
+
+      const signature = await addLiquidity(poolAddress, tokenAAmount, tokenBAmount, minLpTokens);
+      
+      addNotification({
+        type: 'trade',
+        title: 'Liquidity Added',
+        message: `Successfully added liquidity to ${selectedPool.tokenASymbol}-${selectedPool.tokenBSymbol} pool`,
+        data: { signature, pool: selectedPool.pool }
+      });
+    } catch (error) {
+      console.error('Add liquidity error:', error);
+      addNotification({
+        type: 'trade',
+        title: 'Add Liquidity Failed',
+        message: error instanceof Error ? error.message : 'Failed to add liquidity',
+        data: { pool: selectedPool.pool }
+      });
+    }
+  };
+
+  const filteredPools = tradingPools.filter(pool => {
+    const matchesSearch = pool.tokenASymbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         pool.tokenBSymbol.toLowerCase().includes(searchQuery.toLowerCase());
     
     if (selectedFilter === 'all') return matchesSearch;
-    if (selectedFilter === 'transfer-hooks') return matchesSearch && coin.transferHookEnabled;
-    if (selectedFilter === 'confidential') return matchesSearch && coin.confidentialTransferEnabled;
-    if (selectedFilter === 'trending') return matchesSearch && coin.priceChange24h > 5;
+    if (selectedFilter === 'active') return matchesSearch && pool.isActive;
+    if (selectedFilter === 'trending') return matchesSearch && pool.priceChange24h > 5;
     
     return matchesSearch;
   });
@@ -181,76 +168,50 @@ export default function TradingScreen() {
   };
 
   const formatPrice = (price: number) => {
-    if (price < 0.01) return price.toFixed(8);
+    if (price < 0.01) return price.toFixed(6);
     if (price < 1) return price.toFixed(4);
     return price.toFixed(2);
   };
 
   return (
-    <Animated.View 
-      style={[
-        styles.container, 
-        { 
-          backgroundColor: theme.colors.background,
-          opacity: fadeAnim,
-          transform: [
-            { translateY: slideAnim },
-            { scale: scaleAnim }
-          ]
-        }
-      ]}
-    >
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <ScrollView
+        style={styles.scrollView}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.text }]}>Token-2022 Trading</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Trading</Text>
           <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
-            Trade the latest Token-2022 coins with advanced features
+            Trade Token-2022 with Transfer Hooks
           </Text>
         </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchSection}>
-          <View style={[styles.searchContainer, { backgroundColor: theme.colors.card }]}>
-            <Ionicons name="search" size={20} color={theme.colors.muted} style={styles.searchIcon} />
+        {/* Search and Filters */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchBox, { backgroundColor: theme.colors.card }]}>
+            <Ionicons name="search" size={20} color={theme.colors.muted} />
             <TextInput
               style={[styles.searchInput, { color: theme.colors.text }]}
-              placeholder="Search Token-2022 coins..."
+              placeholder="Search pools..."
               placeholderTextColor={theme.colors.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color={theme.colors.muted} />
-              </TouchableOpacity>
-            )}
           </View>
-        </View>
-
-        {/* Filter Tabs */}
-        <View style={styles.filterSection}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
             {[
               { key: 'all', label: 'All' },
-              { key: 'transfer-hooks', label: 'Transfer Hooks' },
-              { key: 'confidential', label: 'Confidential' },
+              { key: 'active', label: 'Active' },
               { key: 'trending', label: 'Trending' },
-            ].map((filter) => (
+            ].map(filter => (
               <TouchableOpacity
                 key={filter.key}
                 style={[
-                  styles.filterTab,
+                  styles.filterButton,
                   { backgroundColor: selectedFilter === filter.key ? theme.colors.primary : theme.colors.card },
                 ]}
                 onPress={() => setSelectedFilter(filter.key)}
@@ -266,117 +227,163 @@ export default function TradingScreen() {
           </ScrollView>
         </View>
 
-        {/* Trading Pairs */}
-        <View style={styles.tradingSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Available Pairs ({filteredCoins.length})
-            </Text>
-          </View>
+        {/* Trading Interface */}
+        {selectedPool && (
+          <View style={[styles.tradingCard, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.tradingHeader}>
+              <Text style={[styles.tradingTitle, { color: theme.colors.text }]}>
+                {selectedPool.tokenASymbol}/{selectedPool.tokenBSymbol}
+              </Text>
+              <TouchableOpacity onPress={() => setSelectedPool(null)}>
+                <Ionicons name="close" size={24} color={theme.colors.muted} />
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.coinsList}>
-            {filteredCoins.map((coin, index) => (
-              <Animated.View
-                key={coin.id}
-                style={{
-                  transform: [
-                    {
-                      translateX: slideAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, -20 * (index + 1)],
-                      }),
-                    },
-                  ],
-                }}
+            <View style={styles.swapContainer}>
+              <View style={styles.swapInputContainer}>
+                <Text style={[styles.swapLabel, { color: theme.colors.muted }]}>
+                  {isTokenAToB ? selectedPool.tokenASymbol : selectedPool.tokenBSymbol}
+                </Text>
+                <TextInput
+                  style={[styles.swapInput, { color: theme.colors.text }]}
+                  placeholder="0.0"
+                  placeholderTextColor={theme.colors.muted}
+                  value={swapAmount}
+                  onChangeText={handleSwapAmountChange}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.swapDirectionButton}
+                onPress={() => setIsTokenAToB(!isTokenAToB)}
               >
-                <TouchableOpacity 
-                  style={[styles.coinCard, { backgroundColor: theme.colors.card }]}
-                  onPress={() => handleTrade(coin)}
-                >
-                  <View style={styles.coinHeader}>
-                    <View style={styles.coinLeft}>
-                      <View style={[styles.coinIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                        <Text style={[styles.coinSymbol, { color: theme.colors.primary }]}>{coin.symbol}</Text>
-                      </View>
-                      <View style={styles.coinInfo}>
-                        <Text style={[styles.coinName, { color: theme.colors.text }]}>{coin.name}</Text>
-                        <Text style={[styles.coinDescription, { color: theme.colors.muted }]}>{coin.description}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.coinRight}>
-                      <Text style={[styles.coinPrice, { color: theme.colors.text }]}>
-                        ${formatPrice(coin.price)}
-                      </Text>
-                      <Text style={[
-                        styles.coinChange,
-                        { color: coin.priceChange24h >= 0 ? theme.colors.success : theme.colors.error }
-                      ]}>
-                        {coin.priceChange24h >= 0 ? '+' : ''}{coin.priceChange24h.toFixed(2)}%
-                      </Text>
-                    </View>
-                  </View>
+                <Ionicons name="swap-vertical" size={20} color={theme.colors.primary} />
+              </TouchableOpacity>
 
-                  <View style={styles.coinStats}>
-                    <View style={styles.stat}>
-                      <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Volume 24h</Text>
-                      <Text style={[styles.statValue, { color: theme.colors.text }]}>
-                        {formatNumber(coin.volume24h)}
-                      </Text>
-                    </View>
-                    <View style={styles.stat}>
-                      <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Market Cap</Text>
-                      <Text style={[styles.statValue, { color: theme.colors.text }]}>
-                        {formatNumber(coin.marketCap)}
-                      </Text>
-                    </View>
-                    <View style={styles.stat}>
-                      <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Liquidity</Text>
-                      <Text style={[styles.statValue, { color: theme.colors.text }]}>
-                        {formatNumber(coin.liquidity)}
-                      </Text>
-                    </View>
-                  </View>
+              <View style={styles.swapOutputContainer}>
+                <Text style={[styles.swapLabel, { color: theme.colors.muted }]}>
+                  {isTokenAToB ? selectedPool.tokenBSymbol : selectedPool.tokenASymbol}
+                </Text>
+                <Text style={[styles.swapOutput, { color: theme.colors.text }]}>
+                  {swapQuote ? swapQuote.amountOut.toFixed(6) : '0.0'}
+                </Text>
+              </View>
+            </View>
 
-                  <View style={styles.coinFeatures}>
-                    {coin.transferHookEnabled && (
-                      <View style={[styles.featureBadge, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                        <Ionicons name="link" size={12} color={theme.colors.primary} />
-                        <Text style={[styles.featureText, { color: theme.colors.primary }]}>Transfer Hooks</Text>
-                      </View>
-                    )}
-                    {coin.confidentialTransferEnabled && (
-                      <View style={[styles.featureBadge, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
-                        <Ionicons name="eye-off" size={12} color={theme.colors.success} />
-                        <Text style={[styles.featureText, { color: theme.colors.success }]}>Confidential</Text>
-                      </View>
-                    )}
-                  </View>
+            {swapQuote && (
+              <View style={styles.quoteInfo}>
+                <View style={styles.quoteRow}>
+                  <Text style={[styles.quoteLabel, { color: theme.colors.muted }]}>Price Impact:</Text>
+                  <Text style={[styles.quoteValue, { color: theme.colors.text }]}>
+                    {swapQuote.priceImpact.toFixed(2)}%
+                  </Text>
+                </View>
+                <View style={styles.quoteRow}>
+                  <Text style={[styles.quoteLabel, { color: theme.colors.muted }]}>Fee:</Text>
+                  <Text style={[styles.quoteValue, { color: theme.colors.text }]}>
+                    {swapQuote.fee.toFixed(6)}
+                  </Text>
+                </View>
+                <View style={styles.quoteRow}>
+                  <Text style={[styles.quoteLabel, { color: theme.colors.muted }]}>Slippage:</Text>
+                  <Text style={[styles.quoteValue, { color: theme.colors.text }]}>
+                    {swapQuote.slippage}%
+                  </Text>
+                </View>
+              </View>
+            )}
 
-                  <TouchableOpacity 
-                    style={[styles.tradeButton, { backgroundColor: theme.colors.primary }]}
-                    onPress={() => handleTrade(coin)}
-                  >
-                    <Ionicons name="swap-horizontal" size={16} color="#000" />
-                    <Text style={[styles.tradeButtonText, { color: '#000' }]}>Trade {coin.symbol}</Text>
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              </Animated.View>
-            ))}
-          </View>
-        </View>
+            <View style={styles.tradingActions}>
+              <TouchableOpacity
+                style={[styles.swapButton, { backgroundColor: theme.colors.primary }]}
+                onPress={handleSwap}
+                disabled={!swapQuote || loading}
+              >
+                <Text style={[styles.swapButtonText, { color: '#000' }]}>
+                  {loading ? 'Swapping...' : 'Swap'}
+                </Text>
+              </TouchableOpacity>
 
-        {/* No Results */}
-        {filteredCoins.length === 0 && (
-          <View style={styles.noResults}>
-            <Ionicons name="search-outline" size={48} color={theme.colors.muted} />
-            <Text style={[styles.noResultsTitle, { color: theme.colors.text }]}>No coins found</Text>
-            <Text style={[styles.noResultsSubtitle, { color: theme.colors.muted }]}>
-              Try adjusting your search or filter criteria
-            </Text>
+              <TouchableOpacity
+                style={[styles.liquidityButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+                onPress={handleAddLiquidity}
+                disabled={loading}
+              >
+                <Text style={[styles.liquidityButtonText, { color: theme.colors.primary }]}>
+                  Add Liquidity
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
+
+        {/* Pools List */}
+        <View style={styles.poolsContainer}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Available Pools</Text>
+          
+          {filteredPools.map((pool, index) => (
+            <TouchableOpacity
+              key={pool.pool}
+              style={[styles.poolCard, { backgroundColor: theme.colors.card }]}
+              onPress={() => handlePoolSelect(pool)}
+            >
+              <View style={styles.poolHeader}>
+                <View style={styles.poolTokens}>
+                  <Text style={[styles.poolPair, { color: theme.colors.text }]}>
+                    {pool.tokenASymbol}/{pool.tokenBSymbol}
+                  </Text>
+                  <Text style={[styles.poolFee, { color: theme.colors.muted }]}>
+                    {pool.feeRate}% fee
+                  </Text>
+                </View>
+                <View style={styles.poolStatus}>
+                  {pool.isActive ? (
+                    <View style={[styles.statusBadge, { backgroundColor: '#10b981' }]}>
+                      <Text style={styles.statusText}>Active</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.statusBadge, { backgroundColor: '#ef4444' }]}>
+                      <Text style={styles.statusText}>Inactive</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.poolStats}>
+                <View style={styles.statItem}>
+                  <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Price</Text>
+                  <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                    ${formatPrice(pool.price)}
+                  </Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={[styles.statLabel, { color: theme.colors.muted }]}>24h Change</Text>
+                  <Text style={[
+                    styles.statValue,
+                    { color: pool.priceChange24h >= 0 ? '#10b981' : '#ef4444' }
+                  ]}>
+                    {pool.priceChange24h >= 0 ? '+' : ''}{pool.priceChange24h.toFixed(2)}%
+                  </Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Volume</Text>
+                  <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                    {formatNumber(pool.volume24h)}
+                  </Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Liquidity</Text>
+                  <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                    {formatNumber(pool.liquidity)}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
       </ScrollView>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -386,9 +393,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100,
   },
   header: {
     paddingHorizontal: 20,
@@ -405,35 +409,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'SpaceGrotesk-Regular',
   },
-  searchSection: {
+  searchContainer: {
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  searchContainer: {
+  searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  searchIcon: {
-    marginRight: 12,
+    borderRadius: 12,
+    marginBottom: 16,
   },
   searchInput: {
     flex: 1,
+    marginLeft: 12,
     fontSize: 16,
     fontFamily: 'SpaceGrotesk-Regular',
   },
-  filterSection: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+  filterContainer: {
+    flexDirection: 'row',
   },
-  filterTab: {
+  filterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -441,152 +438,174 @@ const styles = StyleSheet.create({
   },
   filterText: {
     fontSize: 14,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
-  tradingSection: {
-    paddingHorizontal: 20,
+  tradingCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 20,
+    borderRadius: 16,
   },
-  sectionHeader: {
-    marginBottom: 16,
+  tradingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  sectionTitle: {
+  tradingTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
   },
-  coinsList: {
-    gap: 16,
+  swapContainer: {
+    marginBottom: 20,
   },
-  coinCard: {
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+  swapInputContainer: {
+    marginBottom: 16,
   },
-  coinHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+  swapLabel: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
+    marginBottom: 8,
   },
-  coinLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  swapInput: {
+    fontSize: 24,
+    fontFamily: 'SpaceGrotesk-Bold',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
-  coinIcon: {
+  swapDirectionButton: {
+    alignSelf: 'center',
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginVertical: 8,
   },
-  coinSymbol: {
-    fontSize: 12,
+  swapOutputContainer: {
+    marginTop: 16,
+  },
+  swapOutput: {
+    fontSize: 24,
+    fontFamily: 'SpaceGrotesk-Bold',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  quoteInfo: {
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  quoteRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  quoteLabel: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  quoteValue: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-SemiBold',
+  },
+  tradingActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  swapButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  swapButtonText: {
+    fontSize: 16,
     fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
   },
-  coinInfo: {
+  liquidityButton: {
     flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
   },
-  coinName: {
+  liquidityButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-    fontFamily: 'SpaceGrotesk-SemiBold',
+    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk-Bold',
   },
-  coinDescription: {
-    fontSize: 12,
-    fontFamily: 'SpaceGrotesk-Regular',
+  poolsContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
-  coinRight: {
-    alignItems: 'flex-end',
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    fontFamily: 'SpaceGrotesk-Bold',
   },
-  coinPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-    fontFamily: 'SpaceGrotesk-SemiBold',
+  poolCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
   },
-  coinChange: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'SpaceGrotesk-SemiBold',
-  },
-  coinStats: {
+  poolHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  stat: {
     alignItems: 'center',
+    marginBottom: 16,
+  },
+  poolTokens: {
     flex: 1,
   },
-  statLabel: {
-    fontSize: 10,
-    marginBottom: 2,
+  poolPair: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  poolFee: {
+    fontSize: 14,
     fontFamily: 'SpaceGrotesk-Regular',
   },
-  statValue: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'SpaceGrotesk-SemiBold',
+  poolStatus: {
+    alignItems: 'flex-end',
   },
-  coinFeatures: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  featureBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  featureText: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginLeft: 4,
+  statusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#fff',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
-  tradeButton: {
+  poolStats: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
   },
-  tradeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
-    fontFamily: 'SpaceGrotesk-SemiBold',
-  },
-  noResults: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
-  },
-  noResultsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 8,
-    fontFamily: 'SpaceGrotesk-SemiBold',
-  },
-  noResultsSubtitle: {
-    fontSize: 14,
-    textAlign: 'center',
+  statLabel: {
+    fontSize: 12,
     fontFamily: 'SpaceGrotesk-Regular',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk-SemiBold',
   },
 }); 

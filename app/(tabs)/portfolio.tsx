@@ -23,6 +23,19 @@ interface TokenBalance {
   decimals: number;
 }
 
+interface Transaction {
+  id: string;
+  type: 'send' | 'receive' | 'swap' | 'airdrop' | 'mint';
+  amount: number;
+  symbol: string;
+  from?: string;
+  to?: string;
+  timestamp: Date;
+  status: 'pending' | 'confirmed' | 'failed';
+  txHash?: string;
+  fee?: number;
+}
+
 const PortfolioCard = ({ token }: { token: TokenBalance }) => {
   const { theme } = useAppTheme();
   const isPositive = (token.price || 0) > 0;
@@ -71,6 +84,116 @@ const PortfolioCard = ({ token }: { token: TokenBalance }) => {
           </Text>
         </View>
       </View>
+    </TouchableOpacity>
+  );
+};
+
+const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
+  const { theme } = useAppTheme();
+  
+  const getTransactionIcon = () => {
+    switch (transaction.type) {
+      case 'send':
+        return 'arrow-up';
+      case 'receive':
+        return 'arrow-down';
+      case 'swap':
+        return 'swap-horizontal';
+      case 'airdrop':
+        return 'gift';
+      case 'mint':
+        return 'add-circle';
+      default:
+        return 'help-circle';
+    }
+  };
+
+  const getTransactionColor = () => {
+    switch (transaction.type) {
+      case 'send':
+        return theme.colors.error;
+      case 'receive':
+      case 'airdrop':
+        return theme.colors.success;
+      case 'swap':
+        return theme.colors.primary;
+      case 'mint':
+        return theme.colors.accent;
+      default:
+        return theme.colors.muted;
+    }
+  };
+
+  const getStatusColor = () => {
+    switch (transaction.status) {
+      case 'confirmed':
+        return theme.colors.success;
+      case 'pending':
+        return theme.colors.warning;
+      case 'failed':
+        return theme.colors.error;
+      default:
+        return theme.colors.muted;
+    }
+  };
+
+  const formatTime = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  };
+
+  return (
+    <TouchableOpacity style={[styles.transactionCard, { backgroundColor: theme.colors.card }]}>
+      <View style={styles.transactionHeader}>
+        <View style={styles.transactionInfo}>
+          <View style={[styles.transactionIcon, { backgroundColor: `${getTransactionColor()}20` }]}>
+            <Ionicons name={getTransactionIcon() as any} size={20} color={getTransactionColor()} />
+          </View>
+          <View style={styles.transactionDetails}>
+            <Text style={[styles.transactionType, { color: theme.colors.text }]}>
+              {transaction.type === 'send' ? 'Sent' : 
+               transaction.type === 'receive' ? 'Received' : 
+               transaction.type === 'swap' ? 'Swapped' : 
+               transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+            </Text>
+            <Text style={[styles.transactionTime, { color: theme.colors.muted }]}>
+              {formatTime(transaction.timestamp)}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.transactionAmount}>
+          <Text style={[styles.amount, { color: getTransactionColor() }]}>
+            {transaction.type === 'send' ? '-' : '+'}{transaction.amount.toFixed(2)} {transaction.symbol}
+          </Text>
+          <View style={styles.statusContainer}>
+            <View style={[styles.statusDot, { backgroundColor: getStatusColor() }]} />
+            <Text style={[styles.statusText, { color: getStatusColor() }]}>
+              {transaction.status}
+            </Text>
+          </View>
+        </View>
+      </View>
+      
+      {transaction.type !== 'swap' && transaction.from && transaction.to && (
+        <View style={[styles.transactionAddresses, { borderTopColor: theme.colors.border }]}>
+          <Text style={[styles.addressLabel, { color: theme.colors.muted }]}>From:</Text>
+          <Text style={[styles.addressText, { color: theme.colors.text }]} numberOfLines={1}>
+            {transaction.from === 'System' ? 'System' : 
+             transaction.from.slice(0, 8)}...{transaction.from === 'System' ? '' : transaction.from.slice(-8)}
+          </Text>
+          <Text style={[styles.addressLabel, { color: theme.colors.muted }]}>To:</Text>
+          <Text style={[styles.addressText, { color: theme.colors.text }]} numberOfLines={1}>
+            {transaction.to.slice(0, 8)}...{transaction.to.slice(-8)}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -153,18 +276,90 @@ const QuickActions = () => {
 
 export default function PortfolioScreen() {
   const { theme } = useAppTheme();
-  const { walletInfo, walletService, requestAirdrop } = useApp();
+  const { walletInfo, requestAirdrop } = useApp();
   const [refreshing, setRefreshing] = useState(false);
   const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
   const [totalValue, setTotalValue] = useState(0);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+
+  // Mock recent transactions data
+  const loadRecentTransactions = () => {
+    const mockTransactions: Transaction[] = [
+      {
+        id: '1',
+        type: 'receive',
+        amount: 2.5,
+        symbol: 'SOL',
+        from: '9tq4KSZrFvXqJpViNNkmyz4L6WkghPiiQxQRH9Vq1u',
+        to: walletInfo?.publicKey.toString() || '',
+        timestamp: new Date(Date.now() - 300000), // 5 minutes ago
+        status: 'confirmed',
+        txHash: '5J7X8K2M9N1P3Q4R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0',
+      },
+      {
+        id: '2',
+        type: 'send',
+        amount: 0.5,
+        symbol: 'SOL',
+        from: walletInfo?.publicKey.toString() || '',
+        to: '7xKX9Y2M8N1P3Q4R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0',
+        timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
+        status: 'confirmed',
+        txHash: '6K8X9Y2M8N1P3Q4R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0',
+      },
+      {
+        id: '3',
+        type: 'swap',
+        amount: 100,
+        symbol: 'USDC',
+        from: walletInfo?.publicKey.toString() || '',
+        to: walletInfo?.publicKey.toString() || '',
+        timestamp: new Date(Date.now() - 3600000), // 1 hour ago
+        status: 'confirmed',
+        txHash: '7L9X0Y3M9N2P4Q5R7S8T9U0V1W2X3Y4Z5A6B7C8D9E0F1G2H3I4J5K6L7M8N9O0P1',
+      },
+      {
+        id: '4',
+        type: 'swap',
+        amount: 50,
+        symbol: 'DEX2',
+        from: walletInfo?.publicKey.toString() || '',
+        to: walletInfo?.publicKey.toString() || '',
+        timestamp: new Date(Date.now() - 7200000), // 2 hours ago
+        status: 'confirmed',
+        txHash: '8M0X1Y4M0N3P5Q6R8S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2',
+      },
+    ];
+    setRecentTransactions(mockTransactions);
+  };
 
   const loadTokenBalances = async () => {
-    if (walletService && walletInfo && walletInfo.publicKey) {
+    if (walletInfo && walletInfo.publicKey) {
       try {
-        const balances = await walletService.getTokenBalances(walletInfo.publicKey);
-        setTokenBalances(balances);
+        // Mock token balances for now
+        const mockBalances: TokenBalance[] = [
+          {
+            mint: { toString: () => 'So11111111111111111111111111111111111111112' },
+            symbol: 'SOL',
+            name: 'Solana',
+            balance: walletInfo.balance,
+            value: walletInfo.balance * 100, // Mock price
+            price: 100,
+            decimals: 9,
+          },
+          {
+            mint: { toString: () => 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' },
+            symbol: 'DEX2',
+            name: 'Dex2.0 Token',
+            balance: 1000,
+            value: 250,
+            price: 0.25,
+            decimals: 6,
+          },
+        ];
+        setTokenBalances(mockBalances);
         
-        const total = balances.reduce((sum, token) => sum + (token.value || 0), 0);
+        const total = mockBalances.reduce((sum: number, token: TokenBalance) => sum + (token.value || 0), 0);
         setTotalValue(total);
       } catch (error) {
         console.error('Error loading token balances:', error);
@@ -180,11 +375,13 @@ export default function PortfolioScreen() {
 
   useEffect(() => {
     loadTokenBalances();
+    loadRecentTransactions();
   }, [walletInfo]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadTokenBalances();
+    loadRecentTransactions();
     setRefreshing(false);
   };
 
@@ -228,23 +425,37 @@ export default function PortfolioScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={[styles.greeting, { color: theme.colors.text }]}>
-              My Portfolio
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
-              Manage your Token-2022 assets
-            </Text>
-            <Text style={[styles.walletInfo, { color: theme.colors.primary }]}>
-              {walletInfo.publicKey.toString().substring(0, 8)}...{walletInfo.publicKey.toString().substring(walletInfo.publicKey.toString().length - 8)}
-            </Text>
+          <View style={styles.headerTop}>
+            <View style={styles.headerLeft}>
+              <Text style={[styles.greeting, { color: theme.colors.text }]}>
+                My Portfolio
+              </Text>
+              <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
+                Manage your Token-2022 assets
+              </Text>
+            </View>
           </View>
-          <TouchableOpacity 
-            style={[styles.airdropButton, { backgroundColor: theme.colors.card }]}
-            onPress={handleRequestAirdrop}
-          >
-            <Ionicons name="gift" size={24} color={theme.colors.primary} />
-          </TouchableOpacity>
+
+          {/* Wallet Info Card */}
+          <View style={[styles.walletCard, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.walletHeader}>
+              <View style={[styles.walletIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+                <Ionicons name="wallet" size={20} color={theme.colors.primary} />
+              </View>
+              <View style={styles.walletInfo}>
+                <Text style={[styles.walletTitle, { color: theme.colors.text }]}>Connected Wallet</Text>
+                <Text style={[styles.walletAddress, { color: theme.colors.muted }]}>
+                  {walletInfo.publicKey.toString().substring(0, 8)}...{walletInfo.publicKey.toString().substring(walletInfo.publicKey.toString().length - 8)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.walletBalance}>
+              <Text style={[styles.balanceLabel, { color: theme.colors.muted }]}>Balance</Text>
+              <Text style={[styles.balanceAmount, { color: theme.colors.primary }]}>
+                {walletInfo.balance.toFixed(4)} SOL
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Portfolio Overview */}
@@ -282,6 +493,33 @@ export default function PortfolioScreen() {
             </View>
           )}
         </View>
+
+        {/* Recent Transactions Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Transactions</Text>
+            <Text style={[styles.tokenCount, { color: theme.colors.muted }]}>
+              {recentTransactions.length} transactions
+            </Text>
+          </View>
+
+          {recentTransactions.length > 0 ? (
+            <FlatList
+              data={recentTransactions}
+              renderItem={({ item }) => <TransactionCard transaction={item} />}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+              contentContainerStyle={styles.transactionsList}
+            />
+          ) : (
+            <View style={styles.emptyTokens}>
+              <Ionicons name="receipt-outline" size={48} color={theme.colors.muted} />
+              <Text style={[styles.emptyTokensText, { color: theme.colors.muted }]}>
+                No recent transactions
+              </Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
     </AppView>
   );
@@ -298,40 +536,79 @@ const styles = StyleSheet.create({
     paddingBottom: 100, // Add padding for bottom tab bar
   },
   header: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  headerLeft: {
+    flex: 1,
+    marginRight: 16,
   },
   greeting: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: 'bold',
+    marginBottom: 4,
     fontFamily: 'SpaceGrotesk-Bold',
   },
   subtitle: {
-    fontSize: 14,
-    marginTop: 2,
+    fontSize: 16,
     fontFamily: 'SpaceGrotesk-Regular',
   },
-  walletInfo: {
-    fontSize: 12,
-    marginTop: 4,
-    fontWeight: '500',
-    fontFamily: 'SpaceGrotesk-SemiBold',
+  walletCard: {
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  airdropButton: {
+  walletHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  walletIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginRight: 12,
   },
+  walletInfo: {
+    flex: 1,
+  },
+  walletTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+    fontFamily: 'SpaceGrotesk-SemiBold',
+  },
+  walletAddress: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  walletBalance: {
+    marginBottom: 12,
+  },
+  balanceLabel: {
+    fontSize: 12,
+    marginBottom: 2,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  balanceAmount: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+
   section: {
     marginBottom: 24,
     paddingHorizontal: 20,
@@ -427,6 +704,9 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   tokensList: {
+    gap: 12,
+  },
+  transactionsList: {
     gap: 12,
   },
   portfolioCard: {
@@ -537,6 +817,83 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 12,
     textAlign: 'center',
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  transactionCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  transactionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  transactionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  transactionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  transactionDetails: {
+    flex: 1,
+  },
+  transactionType: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk-SemiBold',
+  },
+  transactionTime: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  transactionAmount: {
+    alignItems: 'flex-end',
+  },
+  amount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk-SemiBold',
+  },
+  transactionAddresses: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  addressLabel: {
+    fontSize: 12,
+    marginBottom: 2,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  addressText: {
+    fontSize: 14,
     fontFamily: 'SpaceGrotesk-Regular',
   },
 }); 

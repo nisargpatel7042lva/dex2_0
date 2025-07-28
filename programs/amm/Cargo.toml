@@ -1,0 +1,29 @@
+[package]
+name = "amm"
+version = "0.1.0"
+edition = "2021"
+description = "Automated Market Maker for Token-2022 with Transfer Hooks"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.29.0"
+anchor-spl = "0.29.0"
+spl-token-2022 = "0.10.0"
+spl-associated-token-account = "2.2.0"
+spl-math = "0.2.0"
+borsh = "0.10.3"
+borsh-derive = "0.10.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0" 
