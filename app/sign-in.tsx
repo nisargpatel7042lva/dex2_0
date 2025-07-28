@@ -1,28 +1,70 @@
 import { useAppTheme } from '@/components/app-theme';
+import OnboardingScreen from '@/components/OnboardingScreen';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+
+const ONBOARDING_COMPLETED_KEY = 'onboarding_completed';
 
 export default function SignIn() {
   const { theme } = useAppTheme();
   const { connectWallet, loading, error, servicesInitialized } = useApp();
   const [loadingText, setLoadingText] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
+  const [titleTapCount, setTitleTapCount] = useState(0);
 
   // Animation values
   const fadeAnim = useState(new Animated.Value(0))[0];
   const slideAnim = useState(new Animated.Value(50))[0];
   const logoScale = useState(new Animated.Value(0.8))[0];
+
+  // Check if onboarding has been completed
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, []);
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const onboardingCompleted = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
+      setShowOnboarding(onboardingCompleted !== 'true');
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      // If there's an error, show onboarding as a fallback
+      setShowOnboarding(true);
+    } finally {
+      setIsLoadingOnboarding(false);
+    }
+  };
+
+  const handleTitleTap = async () => {
+    const newCount = titleTapCount + 1;
+    setTitleTapCount(newCount);
+    
+    if (newCount >= 5) {
+      // Reset onboarding status
+      try {
+        await AsyncStorage.removeItem(ONBOARDING_COMPLETED_KEY);
+        setShowOnboarding(true);
+        setTitleTapCount(0);
+        Alert.alert('Onboarding Reset', 'Onboarding has been reset. You will see it again on next app launch.');
+      } catch (error) {
+        console.error('Error resetting onboarding:', error);
+      }
+    }
+  };
 
   React.useEffect(() => {
     Animated.parallel([
@@ -62,6 +104,37 @@ export default function SignIn() {
     }
   };
 
+  const handleOnboardingComplete = async () => {
+    try {
+      // Mark onboarding as completed
+      await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+      setShowOnboarding(false);
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+      // Still hide onboarding even if saving fails
+      setShowOnboarding(false);
+    }
+  };
+
+  // Show loading while checking onboarding status
+  if (isLoadingOnboarding) {
+    return (
+      <View style={[styles.container, { backgroundColor: '#000000' }]}>
+        <LinearGradient
+          colors={['#000000', '#111111', '#1a1a1a']}
+          style={styles.gradient}
+        >
+          <ActivityIndicator size="large" color="#6366f1" />
+        </LinearGradient>
+      </View>
+    );
+  }
+
+  // Show onboarding if not completed
+  if (showOnboarding) {
+    return <OnboardingScreen onComplete={handleOnboardingComplete} />;
+  }
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -84,7 +157,7 @@ export default function SignIn() {
               style={styles.appLogo}
             />
           </View>
-          <Text style={styles.appTitle}>DEX Screener</Text>
+          <Text style={styles.appTitle} onPress={handleTitleTap}>DEX Screener</Text>
           <Text style={styles.appSubtitle}>
             Token-2022 Analytics & Trading Platform
           </Text>
@@ -101,14 +174,17 @@ export default function SignIn() {
           ]}
         >
           <Text style={styles.tagline}>
-            Discover the future of token trading with advanced analytics and revolutionary Token-2022 features
+            Experience the future of decentralized trading
+          </Text>
+          <Text style={styles.subtagline}>
+            Trade Token-2022 with Transfer Hooks on Solana
           </Text>
         </Animated.View>
 
-        {/* Connect Wallet Section */}
+        {/* Connect Wallet Button */}
         <Animated.View
           style={[
-            styles.walletSection,
+            styles.buttonSection,
             {
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
@@ -118,50 +194,75 @@ export default function SignIn() {
           <TouchableOpacity
             style={[
               styles.primaryButton,
-              !servicesInitialized && { backgroundColor: '#666666', opacity: 0.6 }
+              {
+                backgroundColor: servicesInitialized ? theme.colors.primary : theme.colors.muted,
+                opacity: loading || !servicesInitialized ? 0.6 : 1,
+              },
             ]}
             onPress={handleConnectWallet}
             disabled={loading || !servicesInitialized}
-            activeOpacity={0.8}
           >
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#000000" />
-                <Text style={styles.loadingText}>{loadingText}</Text>
-              </View>
-            ) : !servicesInitialized ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#000000" />
-                <Text style={styles.loadingText}>Initializing services...</Text>
-              </View>
+            {!servicesInitialized ? (
+              <>
+                <ActivityIndicator size="small" color="#000" />
+                <Text style={styles.primaryButtonText}>Initializing services...</Text>
+              </>
+            ) : loading ? (
+              <>
+                <ActivityIndicator size="small" color="#000" />
+                <Text style={styles.primaryButtonText}>{loadingText}</Text>
+              </>
             ) : (
               <>
-                <Ionicons
-                  name="wallet"
-                  size={24}
-                  color="#000000"
-                  style={styles.buttonIcon}
-                />
+                <Ionicons name="wallet" size={24} color="#000" />
                 <Text style={styles.primaryButtonText}>Connect Wallet</Text>
               </>
             )}
           </TouchableOpacity>
-          {error && <Text style={styles.errorText}>{error}</Text>}
+
           {!servicesInitialized && !error && (
-            <Text style={[styles.errorText, { color: '#f59e0b' }]}>
+            <Text style={styles.warningText}>
               Please wait while we initialize the trading services...
+            </Text>
+          )}
+
+          {error && (
+            <Text style={styles.errorText}>
+              Error: {error}
             </Text>
           )}
         </Animated.View>
 
-        {/* Footer */}
-        <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
-          <Text style={styles.footerText}>
-            Connect your Solana wallet to start trading
-          </Text>
-          <Text style={styles.footerSubtext}>
-            Sign the contract to connect your real wallet
-          </Text>
+        {/* Features Section */}
+        <Animated.View
+          style={[
+            styles.featuresSection,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.featureRow}>
+            <View style={styles.featureItem}>
+              <Ionicons name="shield-checkmark" size={24} color={theme.colors.success} />
+              <Text style={styles.featureText}>Secure Trading</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <Ionicons name="flash" size={24} color={theme.colors.primary} />
+              <Text style={styles.featureText}>Instant Swaps</Text>
+            </View>
+          </View>
+          <View style={styles.featureRow}>
+            <View style={styles.featureItem}>
+              <Ionicons name="trending-up" size={24} color={theme.colors.accent} />
+              <Text style={styles.featureText}>Real-time Data</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <Ionicons name="link" size={24} color={theme.colors.warning} />
+              <Text style={styles.featureText}>Transfer Hooks</Text>
+            </View>
+          </View>
         </Animated.View>
       </LinearGradient>
     </View>
@@ -219,7 +320,13 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontFamily: 'SpaceGrotesk-Regular',
   },
-  walletSection: {
+  subtagline: {
+    fontSize: 16,
+    color: '#888888',
+    textAlign: 'center',
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  buttonSection: {
     width: '100%',
     marginBottom: 60,
   },
@@ -266,20 +373,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'SpaceGrotesk-Regular',
   },
-  footer: {
-    alignItems: 'center',
+  warningText: {
+    color: '#f59e0b',
+    textAlign: 'center',
+    marginTop: 16,
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
   },
-  footerText: {
+  featuresSection: {
+    width: '100%',
+    marginTop: 60,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  featureItem: {
+    alignItems: 'center',
+    width: '45%',
+  },
+  featureText: {
     fontSize: 14,
     color: '#888888',
     textAlign: 'center',
-    marginBottom: 8,
-    fontFamily: 'SpaceGrotesk-Regular',
-  },
-  footerSubtext: {
-    fontSize: 12,
-    color: '#666666',
-    textAlign: 'center',
+    marginTop: 8,
     fontFamily: 'SpaceGrotesk-Regular',
   },
 });
