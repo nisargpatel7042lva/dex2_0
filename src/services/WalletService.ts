@@ -10,25 +10,82 @@ export interface WalletInfo {
 }
 
 export class WalletService {
-  private connection: Connection;
+  private connections: Connection[];
+  private currentConnectionIndex: number = 0;
   private wallet: any = null;
 
   constructor() {
-    // Use a more reliable RPC endpoint with better error handling
-    this.connection = new Connection(
-      'https://api.devnet.solana.com',
-      {
+    // Multiple RPC endpoints for fallback
+    this.connections = [
+      new Connection('https://api.devnet.solana.com', {
         commitment: 'confirmed',
         confirmTransactionInitialTimeout: 60000,
         disableRetryOnRateLimit: false,
         httpHeaders: {
           'Content-Type': 'application/json',
         },
-      }
-    );
+      }),
+      new Connection('https://solana-devnet.g.alchemy.com/v2/demo', {
+        commitment: 'confirmed',
+        confirmTransactionInitialTimeout: 60000,
+        disableRetryOnRateLimit: false,
+        httpHeaders: {
+          'Content-Type': 'application/json',
+        },
+      }),
+      new Connection('https://devnet.helius.xyz/?api-key=1aec0e5a-8f0f-4c0f-9f0f-1aec0e5a8f0f', {
+        commitment: 'confirmed',
+        confirmTransactionInitialTimeout: 60000,
+        disableRetryOnRateLimit: false,
+        httpHeaders: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    ];
   }
 
+  private getCurrentConnection(): Connection {
+    return this.connections[this.currentConnectionIndex];
+  }
 
+  private async switchToNextConnection(): Promise<void> {
+    this.currentConnectionIndex = (this.currentConnectionIndex + 1) % this.connections.length;
+    console.log(`Switched to RPC endpoint ${this.currentConnectionIndex + 1}`);
+  }
+
+  private async retryWithFallback<T>(
+    operation: (connection: Connection) => Promise<T>,
+    maxRetries: number = 3
+  ): Promise<T> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const connection = this.getCurrentConnection();
+        console.log(`Attempting operation with RPC endpoint ${this.currentConnectionIndex + 1} (attempt ${attempt + 1})`);
+        
+        const result = await Promise.race([
+          operation(connection),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Network timeout')), 15000)
+          )
+        ]);
+        
+        return result;
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`Attempt ${attempt + 1} failed:`, error);
+        
+        if (attempt < maxRetries - 1) {
+          await this.switchToNextConnection();
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        }
+      }
+    }
+    
+    throw lastError || new Error('All RPC endpoints failed');
+  }
 
   async connectWallet(): Promise<WalletInfo> {
     console.log('Connecting to mobile wallet...');
@@ -49,6 +106,10 @@ export class WalletService {
       // Get the first account from the authorization result
       const authorizedAccount = authResult.accounts[0];
       console.log('Authorized account:', authorizedAccount);
+      
+      if (!authorizedAccount || !authorizedAccount.address) {
+        throw new Error('No valid account received from wallet');
+      }
       
       // Convert the Base64 address to PublicKey using the same method as use-authorization.tsx
       const publicKeyByteArray = toUint8Array(authorizedAccount.address);
@@ -109,16 +170,13 @@ export class WalletService {
 
   async getSOLBalance(publicKey: PublicKey): Promise<number> {
     try {
-      // Add timeout and retry logic for network requests
-      const balance = await Promise.race([
-        this.connection.getBalance(publicKey),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Network timeout')), 10000)
-        )
-      ]);
-      return (balance as number) / LAMPORTS_PER_SOL;
+      const balance = await this.retryWithFallback(async (connection) => {
+        return await connection.getBalance(publicKey);
+      });
+      
+      return balance / LAMPORTS_PER_SOL;
     } catch (error) {
-      console.error('Error getting SOL balance:', error);
+      console.error('Error getting SOL balance after all retries:', error);
       // Return 0 balance instead of throwing error to prevent app crashes
       return 0;
     }
@@ -131,11 +189,16 @@ export class WalletService {
         throw new Error('No wallet connected');
       }
 
-      const signature = await this.connection.requestAirdrop(
-        publicKey,
-        amount * LAMPORTS_PER_SOL
-      );
-      await this.connection.confirmTransaction(signature);
+      const signature = await this.retryWithFallback(async (connection) => {
+        return await connection.requestAirdrop(
+          publicKey,
+          amount * LAMPORTS_PER_SOL
+        );
+      });
+      
+      await this.retryWithFallback(async (connection) => {
+        return await connection.confirmTransaction(signature);
+      });
     } catch (error) {
       console.error('Error requesting airdrop:', error);
       throw error;
@@ -177,10 +240,13 @@ export class WalletService {
 
   async getTokenBalances(publicKey: PublicKey): Promise<any[]> {
     try {
-      const tokenAccounts = await this.connection.getParsedTokenAccountsByOwner(
-        publicKey,
-        { programId: TOKEN_PROGRAM_ID }
-      );
+      const tokenAccounts = await this.retryWithFallback(async (connection) => {
+        return await connection.getParsedTokenAccountsByOwner(
+          publicKey,
+          { programId: TOKEN_PROGRAM_ID }
+        );
+      });
+      
       return tokenAccounts.value;
     } catch (error) {
       console.error('Error getting token balances:', error);
@@ -197,6 +263,6 @@ export class WalletService {
   }
 
   getConnection(): Connection {
-    return this.connection;
+    return this.getCurrentConnection();
   }
 } 
