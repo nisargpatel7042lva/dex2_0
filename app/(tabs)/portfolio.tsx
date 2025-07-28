@@ -1,18 +1,27 @@
 import { useAppTheme } from '@/components/app-theme';
 import { AppView } from '@/components/app-view';
 import { useApp } from '@/src/context/AppContext';
-import { TokenBalance } from '@/src/services/WalletService';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-    FlatList,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
+
+interface TokenBalance {
+  mint: { toString: () => string };
+  symbol: string;
+  name: string;
+  balance: number;
+  value?: number;
+  price?: number;
+  decimals: number;
+}
 
 const PortfolioCard = ({ token }: { token: TokenBalance }) => {
   const { theme } = useAppTheme();
@@ -150,12 +159,22 @@ export default function PortfolioScreen() {
   const [totalValue, setTotalValue] = useState(0);
 
   const loadTokenBalances = async () => {
-    if (walletService) {
-      const balances = await walletService.getTokenBalances();
-      setTokenBalances(balances);
-      
-      const total = balances.reduce((sum, token) => sum + (token.value || 0), 0);
-      setTotalValue(total);
+    if (walletService && walletInfo && walletInfo.publicKey) {
+      try {
+        const balances = await walletService.getTokenBalances(walletInfo.publicKey);
+        setTokenBalances(balances);
+        
+        const total = balances.reduce((sum, token) => sum + (token.value || 0), 0);
+        setTotalValue(total);
+      } catch (error) {
+        console.error('Error loading token balances:', error);
+        setTokenBalances([]);
+        setTotalValue(0);
+      }
+    } else {
+      // Reset state if no valid wallet info
+      setTokenBalances([]);
+      setTotalValue(0);
     }
   };
 

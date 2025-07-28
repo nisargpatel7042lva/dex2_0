@@ -1,8 +1,8 @@
 import { useAppTheme } from '@/components/app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Tabs, usePathname } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -25,104 +25,33 @@ export default function TabLayout() {
   const { theme } = useAppTheme();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState('index');
-  const [isAnimating, setIsAnimating] = useState(false);
-  
-  // Animation values
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const currentTab = pathname.split('/').pop() || 'index';
     setActiveTab(currentTab);
   }, [pathname]);
 
-  const animateTransition = (direction: 'left' | 'right') => {
-    setIsAnimating(true);
-    
-    // Fade out current screen
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0.3,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 0.95,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: direction === 'left' ? -50 : 50,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      // Reset animations for next screen
-      slideAnim.setValue(direction === 'left' ? 50 : -50);
-      fadeAnim.setValue(0.3);
-      scaleAnim.setValue(0.95);
-      
-      // Animate in new screen
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setIsAnimating(false);
-      });
-    });
-  };
-
   const handleTabPress = (tabKey: string) => {
-    if (activeTab === tabKey || isAnimating) return;
-    
-    // Determine animation direction based on tab order
-    const currentIndex = tabs.findIndex(tab => tab.key === activeTab);
-    const newIndex = tabs.findIndex(tab => tab.key === tabKey);
-    const direction = newIndex > currentIndex ? 'left' : 'right';
+    if (activeTab === tabKey) return;
     
     setActiveTab(tabKey);
-    animateTransition(direction);
     
     // Navigate to the new screen
     if (tabKey === 'index') {
-      router.push('/(tabs)/');
+      router.push('/(tabs)/' as any);
     } else {
-      router.push(`/(tabs)/${tabKey}`);
+      router.push(`/(tabs)/${tabKey}` as any);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Animated.View 
-        style={[
-          styles.contentContainer,
-          {
-            opacity: fadeAnim,
-            transform: [
-              { translateX: slideAnim },
-              { scale: scaleAnim }
-            ]
-          }
-        ]}
-      >
+      <View style={styles.contentContainer}>
         <Tabs
           screenOptions={{
             headerShown: false,
             tabBarStyle: { display: 'none' }, // Hide default tab bar
+            animation: 'fade',
           }}
         >
           <Tabs.Screen name="index" />
@@ -130,7 +59,7 @@ export default function TabLayout() {
           <Tabs.Screen name="portfolio" />
           <Tabs.Screen name="settings" />
         </Tabs>
-      </Animated.View>
+      </View>
 
       {/* Custom Bottom Tab Bar */}
       <View style={styles.tabBarContainer}>
@@ -144,37 +73,16 @@ export default function TabLayout() {
                 style={styles.tabItem}
                 onPress={() => handleTabPress(tab.key)}
                 activeOpacity={0.7}
-                disabled={isAnimating}
               >
                 {isActive && (
-                  <Animated.View 
-                    style={[
-                      styles.activeIndicator,
-                      {
-                        transform: [
-                          {
-                            scale: isActive ? 1 : 0.8
-                          }
-                        ]
-                      }
-                    ]} 
-                  />
+                  <View style={styles.activeIndicator} />
                 )}
 
                 <Ionicons
-                  name={isActive ? tab.iconSelected : tab.icon}
+                  name={(isActive ? tab.iconSelected : tab.icon) as any}
                   size={22}
                   color={isActive ? '#fff' : '#666'}
-                  style={[
-                    styles.tabIcon,
-                    {
-                      transform: [
-                        {
-                          scale: isActive ? 1.1 : 1
-                        }
-                      ]
-                    }
-                  ]}
+                  style={styles.tabIcon}
                 />
 
                 <Text style={[

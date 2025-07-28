@@ -1,48 +1,21 @@
 import { useAppTheme } from '@/components/app-theme';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
-  Animated,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Pressable,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 export default function HomeScreen() {
   const { theme } = useAppTheme();
   const { walletInfo, requestAirdrop } = useApp();
   const [refreshing, setRefreshing] = useState(false);
-
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-
-  useEffect(() => {
-    // Entrance animation
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -123,16 +96,11 @@ export default function HomeScreen() {
   ];
 
   return (
-    <Animated.View 
+    <View 
       style={[
         styles.container, 
         { 
-          backgroundColor: theme.colors.background,
-          opacity: fadeAnim,
-          transform: [
-            { translateY: slideAnim },
-            { scale: scaleAnim }
-          ]
+          backgroundColor: theme.colors.background
         }
       ]}
     >
@@ -158,9 +126,12 @@ export default function HomeScreen() {
                 Trade Token-2022 with Transfer Hooks
               </Text>
             </View>
-            <TouchableOpacity style={[styles.notificationButton, { backgroundColor: theme.colors.card }]}>
+            <Pressable 
+              style={[styles.notificationButton, { backgroundColor: theme.colors.card }]}
+              android_ripple={{ color: 'rgba(99, 102, 241, 0.1)', borderless: true }}
+            >
               <Ionicons name="notifications-outline" size={24} color={theme.colors.primary} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Wallet Info Card */}
@@ -183,13 +154,14 @@ export default function HomeScreen() {
                   {walletInfo.balance.toFixed(4)} SOL
                 </Text>
               </View>
-              <TouchableOpacity 
+              <Pressable 
                 style={[styles.airdropButton, { backgroundColor: theme.colors.primary }]}
                 onPress={handleRequestAirdrop}
+                android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: false }}
               >
                 <Ionicons name="add-circle-outline" size={16} color="#000" />
                 <Text style={[styles.airdropText, { color: '#000' }]}>Request Airdrop</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
         </View>
@@ -253,18 +225,8 @@ export default function HomeScreen() {
           
           <View style={styles.launchesList}>
             {recentLaunches.map((launch, index) => (
-              <Animated.View
+              <View
                 key={launch.id}
-                style={{
-                  transform: [
-                    {
-                      translateX: slideAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, -20 * (index + 1)],
-                      }),
-                    },
-                  ],
-                }}
               >
                 <TouchableOpacity 
                   style={[styles.launchItem, { backgroundColor: theme.colors.card }]}
@@ -306,7 +268,7 @@ export default function HomeScreen() {
                     )}
                   </View>
                 </TouchableOpacity>
-              </Animated.View>
+              </View>
             ))}
           </View>
         </View>
@@ -350,7 +312,7 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
-    </Animated.View>
+    </View>
   );
 }
 
