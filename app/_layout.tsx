@@ -43,6 +43,9 @@ export default function RootLayout() {
           >
             <Stack.Screen name="sign-in" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="send" />
+            <Stack.Screen name="receive" />
+            <Stack.Screen name="swap" />
             <Stack.Screen name="+not-found" />
           </Stack>
         </AppNavigationGuard>

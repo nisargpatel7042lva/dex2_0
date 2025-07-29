@@ -147,7 +147,7 @@ export class WalletService {
       this.wallet = null;
     } catch (error) {
       console.error('Error disconnecting wallet:', error);
-      this.wallet = null;
+    this.wallet = null;
     }
   }
 
@@ -207,9 +207,9 @@ export class WalletService {
 
   async sendTransaction(transaction: Transaction): Promise<string> {
     try {
-      if (!this.wallet) {
+    if (!this.wallet) {
         throw new Error('No wallet connected');
-      }
+    }
 
       return await transact(async (wallet) => {
         const signatures = await wallet.signAndSendTransactions({
@@ -226,12 +226,12 @@ export class WalletService {
 
   async signTransaction(transaction: Transaction): Promise<Transaction> {
     try {
-      if (!this.wallet) {
+    if (!this.wallet) {
         throw new Error('No wallet connected');
-      }
-      
+    }
+
       // For mobile wallet, transactions are signed during send
-      return transaction;
+    return transaction;
     } catch (error) {
       console.error('Error signing transaction:', error);
       throw error;
@@ -246,7 +246,7 @@ export class WalletService {
           { programId: TOKEN_PROGRAM_ID }
         );
       });
-      
+
       return tokenAccounts.value;
     } catch (error) {
       console.error('Error getting token balances:', error);

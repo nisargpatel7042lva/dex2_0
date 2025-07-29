@@ -124,7 +124,7 @@ export default function SignIn() {
           colors={['#000000', '#111111', '#1a1a1a']}
           style={styles.gradient}
         >
-          <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color="#6366f1" />
         </LinearGradient>
       </View>
     );
@@ -151,7 +151,7 @@ export default function SignIn() {
             },
           ]}
         >
-          <View style={styles.logoContainer}>
+            <View style={styles.logoContainer}>
             <Image
               source={require('../assets/images/icon.png')}
               style={styles.appLogo}
@@ -160,7 +160,7 @@ export default function SignIn() {
           <Text style={styles.appTitle} onPress={handleTitleTap}>DEX Screener</Text>
           <Text style={styles.appSubtitle}>
             Token-2022 Analytics & Trading Platform
-          </Text>
+              </Text>
         </Animated.View>
 
         {/* Tagline Section */}
@@ -175,10 +175,10 @@ export default function SignIn() {
         >
           <Text style={styles.tagline}>
             Experience the future of decentralized trading
-          </Text>
+              </Text>
           <Text style={styles.subtagline}>
             Trade Token-2022 with Transfer Hooks on Solana
-          </Text>
+              </Text>
         </Animated.View>
 
         {/* Connect Wallet Button */}
@@ -191,7 +191,7 @@ export default function SignIn() {
             },
           ]}
         >
-          <TouchableOpacity
+                  <TouchableOpacity
             style={[
               styles.primaryButton,
               {
@@ -199,9 +199,9 @@ export default function SignIn() {
                 opacity: loading || !servicesInitialized ? 0.6 : 1,
               },
             ]}
-            onPress={handleConnectWallet}
+                  onPress={handleConnectWallet}
             disabled={loading || !servicesInitialized}
-          >
+                >
             {!servicesInitialized ? (
               <>
                 <ActivityIndicator size="small" color="#000" />

@@ -4,13 +4,13 @@ import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const SettingItem = ({ 

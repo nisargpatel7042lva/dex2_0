@@ -132,8 +132,8 @@ export default function HomeScreen() {
         }
       ]}
     >
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
@@ -149,10 +149,10 @@ export default function HomeScreen() {
             <View style={styles.headerLeft}>
               <Text style={[styles.greeting, { color: theme.colors.text }]}>
                 Welcome Back!
-              </Text>
+            </Text>
               <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
                 Trade Token-2022 with Transfer Hooks
-              </Text>
+            </Text>
             </View>
             <NotificationButton
               onPress={() => setNotificationModalVisible(true)}
@@ -260,7 +260,7 @@ export default function HomeScreen() {
               <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</Text>
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.launchesList}>
             {recentLaunches.map((launch, index) => (
               <View
@@ -287,7 +287,7 @@ export default function HomeScreen() {
                         { color: launch.isPositive ? theme.colors.success : theme.colors.error }
                       ]}>
                         {launch.priceChange}
-                      </Text>
+                </Text>
                     </View>
                   </View>
                   
@@ -305,7 +305,7 @@ export default function HomeScreen() {
                       </View>
                     )}
                   </View>
-                </TouchableOpacity>
+              </TouchableOpacity>
               </View>
             ))}
           </View>

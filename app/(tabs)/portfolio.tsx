@@ -2,8 +2,10 @@ import { useAppTheme } from '@/components/app-theme';
 import { AppView } from '@/components/app-view';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   FlatList,
   RefreshControl,
   ScrollView,
@@ -43,13 +45,13 @@ const PortfolioCard = ({ token }: { token: TokenBalance }) => {
   return (
     <TouchableOpacity style={[styles.portfolioCard, { backgroundColor: theme.colors.card }]}>
       <View style={styles.tokenHeader}>
-        <View style={styles.tokenInfo}>
+    <View style={styles.tokenInfo}>
           <View style={[styles.tokenIcon, { backgroundColor: theme.colors.primary }]}>
-            <Text style={styles.tokenIconText}>
-              {token.symbol.charAt(0)}
-            </Text>
-          </View>
-          <View style={styles.tokenDetails}>
+        <Text style={styles.tokenIconText}>
+          {token.symbol.charAt(0)}
+        </Text>
+      </View>
+      <View style={styles.tokenDetails}>
             <Text style={[styles.tokenSymbol, { color: theme.colors.text }]}>{token.symbol}</Text>
             <Text style={[styles.tokenName, { color: theme.colors.muted }]}>{token.name}</Text>
           </View>
@@ -178,24 +180,24 @@ const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
               {transaction.status}
             </Text>
           </View>
-        </View>
       </View>
-      
+    </View>
+    
       {transaction.type !== 'swap' && transaction.from && transaction.to && (
         <View style={[styles.transactionAddresses, { borderTopColor: theme.colors.border }]}>
           <Text style={[styles.addressLabel, { color: theme.colors.muted }]}>From:</Text>
           <Text style={[styles.addressText, { color: theme.colors.text }]} numberOfLines={1}>
             {transaction.from === 'System' ? 'System' : 
              transaction.from.slice(0, 8)}...{transaction.from === 'System' ? '' : transaction.from.slice(-8)}
-          </Text>
+      </Text>
           <Text style={[styles.addressLabel, { color: theme.colors.muted }]}>To:</Text>
           <Text style={[styles.addressText, { color: theme.colors.text }]} numberOfLines={1}>
             {transaction.to.slice(0, 8)}...{transaction.to.slice(-8)}
-          </Text>
-        </View>
+      </Text>
+    </View>
       )}
-    </TouchableOpacity>
-  );
+  </TouchableOpacity>
+);
 };
 
 const PortfolioOverview = ({ totalValue, solBalance }: { totalValue: number; solBalance: number }) => {
@@ -236,38 +238,80 @@ const PortfolioOverview = ({ totalValue, solBalance }: { totalValue: number; sol
 
 const QuickActions = () => {
   const { theme } = useAppTheme();
+  const { requestAirdrop } = useApp();
+  
+  const handleSend = () => {
+    router.push('/send');
+  };
+
+  const handleReceive = () => {
+    router.push('/receive');
+  };
+
+  const handleSwap = () => {
+    router.push('/swap');
+  };
+
+  const handleAirdrop = async () => {
+    try {
+      await requestAirdrop(1);
+      Alert.alert('Success', 'Airdrop requested successfully! Check your balance.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to request airdrop. Please try again.');
+    }
+  };
   
   return (
     <View style={styles.quickActions}>
       <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
       
       <View style={styles.actionsGrid}>
-        <TouchableOpacity style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
-          <View style={[styles.actionIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+        <TouchableOpacity 
+          style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
+          onPress={handleSend}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: 'rgba(99, 102, 241, 0.15)' }]}>
             <Ionicons name="send" size={24} color={theme.colors.primary} />
           </View>
           <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Send</Text>
+          <View style={[styles.actionIndicator, { backgroundColor: theme.colors.primary }]} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
-          <View style={[styles.actionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+        <TouchableOpacity 
+          style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
+          onPress={handleReceive}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
             <Ionicons name="download" size={24} color={theme.colors.success} />
           </View>
           <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Receive</Text>
+          <View style={[styles.actionIndicator, { backgroundColor: theme.colors.success }]} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
-          <View style={[styles.actionIcon, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+        <TouchableOpacity 
+          style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
+          onPress={handleSwap}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
             <Ionicons name="swap-horizontal" size={24} color={theme.colors.warning} />
           </View>
           <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Swap</Text>
+          <View style={[styles.actionIndicator, { backgroundColor: theme.colors.warning }]} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
-          <View style={[styles.actionIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+        <TouchableOpacity 
+          style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
+          onPress={handleAirdrop}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
             <Ionicons name="gift" size={24} color={theme.colors.error} />
           </View>
           <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Airdrop</Text>
+          <View style={[styles.actionIndicator, { backgroundColor: theme.colors.error }]} />
         </TouchableOpacity>
       </View>
     </View>
@@ -411,7 +455,7 @@ export default function PortfolioScreen() {
           </Text>
         </View>
       </AppView>
-    );
+  );
   }
 
   return (
@@ -429,25 +473,25 @@ export default function PortfolioScreen() {
             <View style={styles.headerLeft}>
               <Text style={[styles.greeting, { color: theme.colors.text }]}>
                 My Portfolio
-              </Text>
+            </Text>
               <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
                 Manage your Token-2022 assets
-              </Text>
-            </View>
+            </Text>
           </View>
+        </View>
 
           {/* Wallet Info Card */}
           <View style={[styles.walletCard, { backgroundColor: theme.colors.card }]}>
             <View style={styles.walletHeader}>
               <View style={[styles.walletIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
                 <Ionicons name="wallet" size={20} color={theme.colors.primary} />
-              </View>
+          </View>
               <View style={styles.walletInfo}>
                 <Text style={[styles.walletTitle, { color: theme.colors.text }]}>Connected Wallet</Text>
                 <Text style={[styles.walletAddress, { color: theme.colors.muted }]}>
                   {walletInfo.publicKey.toString().substring(0, 8)}...{walletInfo.publicKey.toString().substring(walletInfo.publicKey.toString().length - 8)}
                 </Text>
-              </View>
+            </View>
             </View>
             <View style={styles.walletBalance}>
               <Text style={[styles.balanceLabel, { color: theme.colors.muted }]}>Balance</Text>
@@ -516,8 +560,8 @@ export default function PortfolioScreen() {
               <Ionicons name="receipt-outline" size={48} color={theme.colors.muted} />
               <Text style={[styles.emptyTokensText, { color: theme.colors.muted }]}>
                 No recent transactions
-              </Text>
-            </View>
+                  </Text>
+                </View>
           )}
         </View>
       </ScrollView>
@@ -702,6 +746,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     fontFamily: 'SpaceGrotesk-SemiBold',
+  },
+  actionIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 8,
   },
   tokensList: {
     gap: 12,

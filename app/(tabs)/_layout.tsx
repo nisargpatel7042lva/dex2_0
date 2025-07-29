@@ -47,8 +47,8 @@ export default function TabLayout() {
   return (
     <View style={styles.container}>
       <View style={styles.contentContainer}>
-        <Tabs
-          screenOptions={{
+    <Tabs
+      screenOptions={{
             headerShown: false,
             tabBarStyle: { display: 'none' }, // Hide default tab bar
             animation: 'fade',
