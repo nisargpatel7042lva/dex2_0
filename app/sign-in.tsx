@@ -89,7 +89,8 @@ export default function SignIn() {
 
   const handleConnectWallet = async () => {
     try {
-      setLoadingText('Connecting to your wallet...');
+      setLoadingText('    Connecting to your wallet...');
+      console.log('=== CALLING CONNECT WALLET ===');
       await connectWallet();
       // Wallet connection automatically handles authentication
       // No need for separate signIn() call

@@ -64,7 +64,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           'https://api.devnet.solana.com',
           'confirmed'
         );
-        
         console.log('Connection created successfully');
         
         const walletSvc = new WalletService();
@@ -90,7 +89,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         setError(`Failed to initialize services: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     };
-
     initializeServices();
   }, []);
 
@@ -104,7 +102,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       setError(errorMsg);
       return;
     }
-
+    
     setLoading(true);
     setError(null);
     
