@@ -1,297 +1,311 @@
+import { AppText } from '@/components/app-text';
 import { useAppTheme } from '@/components/app-theme';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
     Alert,
     ScrollView,
     StyleSheet,
-    Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
 
-interface Token {
-  symbol: string;
-  name: string;
-  mint: string;
-  balance: number;
-  price: number;
-  icon: string;
-}
-
 export default function SendScreen() {
   const { theme } = useAppTheme();
   const { walletInfo } = useApp();
-  const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+  
+  // Transfer state
   const [recipientAddress, setRecipientAddress] = useState('');
   const [amount, setAmount] = useState('');
-  const [showTokenSelector, setShowTokenSelector] = useState(false);
+  const [note, setNote] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isValidAddress, setIsValidAddress] = useState(false);
 
-  const availableTokens: Token[] = [
-    {
-      symbol: 'SOL',
-      name: 'Solana',
-      mint: 'So11111111111111111111111111111111111111112',
-      balance: walletInfo?.balance || 0,
-      price: 100.50,
-      icon: '💎',
-    },
-    {
-      symbol: 'DEX',
-      name: 'DEX Token',
-      mint: 'Token111111111111111111111111111111111111111',
-      balance: 1000,
-      price: 0.25,
-      icon: '🚀',
-    },
-    {
-      symbol: 'PRIV',
-      name: 'Privacy Coin',
-      mint: 'Token222222222222222222222222222222222222222',
-      balance: 500,
-      price: 1.75,
-      icon: '🔒',
-    },
-  ];
+  // Fee calculation (mock)
+  const networkFee = 0.000005; // SOL
+  const totalFee = networkFee;
+  const totalAmount = amount ? parseFloat(amount) + totalFee : 0;
 
-  const handleTokenSelect = (token: Token) => {
-    setSelectedToken(token);
-    setShowTokenSelector(false);
+  const validateAddress = (address: string) => {
+    // Basic Solana address validation (44 characters, base58)
+    const isValid = address.length === 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
+    setIsValidAddress(isValid);
+    return isValid;
   };
 
-  const handleSend = () => {
-    if (!selectedToken) {
-      Alert.alert('Error', 'Please select a token to send');
+  const handleAddressChange = (address: string) => {
+    setRecipientAddress(address);
+    if (address.length > 0) {
+      validateAddress(address);
+    } else {
+      setIsValidAddress(false);
+    }
+  };
+
+  const handleAmountChange = (value: string) => {
+    // Only allow numbers and decimal point
+    const cleanValue = value.replace(/[^0-9.]/g, '');
+    
+    // Prevent multiple decimal points
+    const parts = cleanValue.split('.');
+    if (parts.length > 2) return;
+    
+    // Limit decimal places to 9 (Solana's max)
+    if (parts[1] && parts[1].length > 9) return;
+    
+    setAmount(cleanValue);
+  };
+
+  const handleSend = async () => {
+    if (!walletInfo) {
+      Alert.alert('Error', 'Please connect your wallet first');
       return;
     }
 
-    if (!recipientAddress.trim()) {
-      Alert.alert('Error', 'Please enter a recipient address');
+    if (!recipientAddress || !isValidAddress) {
+      Alert.alert('Error', 'Please enter a valid recipient address');
       return;
     }
 
-    if (!amount.trim()) {
-      Alert.alert('Error', 'Please enter an amount');
-      return;
-    }
-
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
+    if (!amount || parseFloat(amount) <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
 
-    if (numAmount > selectedToken.balance) {
+    const numAmount = parseFloat(amount);
+    if (numAmount > walletInfo.balance) {
       Alert.alert('Error', 'Insufficient balance');
       return;
     }
 
-    // Validate Solana address format (basic check)
-    if (recipientAddress.length !== 44) {
-      Alert.alert('Error', 'Please enter a valid Solana address');
+    if (totalAmount > walletInfo.balance) {
+      Alert.alert('Error', 'Insufficient balance to cover amount + fees');
       return;
     }
 
-    Alert.alert(
-      'Confirm Send',
-      `Send ${amount} ${selectedToken.symbol} to:\n${recipientAddress.substring(0, 8)}...${recipientAddress.substring(recipientAddress.length - 8)}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Send', 
-          onPress: () => {
-            Alert.alert('Success', 'Transaction sent successfully!');
-            setAmount('');
-            setRecipientAddress('');
-          }
-        },
-      ]
-    );
+    setLoading(true);
+    
+    try {
+      // Simulate transfer (frontend only)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      Alert.alert(
+        'Transfer Successful!',
+        `Sent ${amount} SOL to ${recipientAddress.slice(0, 8)}...${recipientAddress.slice(-8)}`,
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Transfer failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const TokenSelector = () => (
-    <View style={styles.tokenSelector}>
-      <View style={styles.tokenSelectorHeader}>
-        <Text style={[styles.tokenSelectorTitle, { color: theme.colors.text }]}>
-          Select Token to Send
-        </Text>
-        <TouchableOpacity onPress={() => setShowTokenSelector(false)}>
-          <Ionicons name="close" size={24} color={theme.colors.muted} />
-        </TouchableOpacity>
-      </View>
-      
-      <ScrollView style={styles.tokenList}>
-        {availableTokens.map((token) => (
-          <TouchableOpacity
-            key={token.mint}
-            style={[styles.tokenItem, { backgroundColor: theme.colors.background }]}
-            onPress={() => handleTokenSelect(token)}
-          >
-            <View style={styles.tokenInfo}>
-              <Text style={styles.tokenIcon}>{token.icon}</Text>
-              <View style={styles.tokenDetails}>
-                <Text style={[styles.tokenSymbol, { color: theme.colors.text }]}>
-                  {token.symbol}
-                </Text>
-                <Text style={[styles.tokenName, { color: theme.colors.muted }]}>
-                  {token.name}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.tokenBalance}>
-              <Text style={[styles.tokenBalanceText, { color: theme.colors.text }]}>
-                {token.balance.toLocaleString()}
-              </Text>
-              <Text style={[styles.tokenPrice, { color: theme.colors.muted }]}>
-                ${token.price.toFixed(2)}
-              </Text>
-            </View>
+  const pasteAddress = async () => {
+    // In a real app, this would use Clipboard API
+    Alert.alert('Paste', 'Paste functionality would be implemented here');
+  };
+
+  const scanQR = () => {
+    Alert.alert('Scan QR', 'QR scanning functionality would be implemented here');
+  };
+
+  const setMaxAmount = () => {
+    if (walletInfo) {
+      const maxAmount = Math.max(0, walletInfo.balance - totalFee);
+      setAmount(maxAmount.toFixed(9));
+    }
+  };
+
+  if (!walletInfo) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
+          <AppText style={[styles.headerTitle, { color: theme.colors.text }]}>Send</AppText>
+          <View style={styles.placeholder} />
+        </View>
+        
+        <View style={styles.centerContent}>
+          <Ionicons name="wallet-outline" size={64} color={theme.colors.muted} />
+          <AppText style={[styles.noWalletText, { color: theme.colors.text }]}>
+            Connect your wallet to send payments
+          </AppText>
+          <TouchableOpacity
+            style={[styles.connectButton, { backgroundColor: theme.colors.primary }]}
+            onPress={() => router.push('/sign-in')}
+          >
+            <AppText style={styles.connectButtonText}>Connect Wallet</AppText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
+      <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Send Tokens</Text>
+        <AppText style={[styles.headerTitle, { color: theme.colors.text }]}>Send</AppText>
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Send Card */}
-        <View style={[styles.sendCard, { backgroundColor: theme.colors.card }]}>
-          {/* Token Selection */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Token</Text>
-            <TouchableOpacity
-              style={[styles.tokenSelector, { backgroundColor: theme.colors.background }]}
-              onPress={() => setShowTokenSelector(true)}
-            >
-              {selectedToken ? (
-                <View style={styles.selectedToken}>
-                  <Text style={styles.tokenIcon}>{selectedToken.icon}</Text>
-                  <View style={styles.tokenDetails}>
-                    <Text style={[styles.tokenSymbol, { color: theme.colors.text }]}>
-                      {selectedToken.symbol}
-                    </Text>
-                    <Text style={[styles.tokenBalance, { color: theme.colors.muted }]}>
-                      Balance: {selectedToken.balance.toLocaleString()}
-                    </Text>
-                  </View>
-                </View>
-              ) : (
-                <Text style={[styles.selectTokenText, { color: theme.colors.muted }]}>
-                  Select Token
-                </Text>
-              )}
-              <Ionicons name="chevron-down" size={20} color={theme.colors.muted} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Recipient Address */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Recipient Address</Text>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Recipient Address */}
+        <View style={[styles.inputCard, { backgroundColor: theme.colors.card }]}>
+          <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Recipient Address</AppText>
+          
+          <View style={styles.addressInputContainer}>
             <TextInput
-              style={[styles.input, { 
-                backgroundColor: theme.colors.background,
-                color: theme.colors.text,
-                borderColor: theme.colors.border
-              }]}
-              value={recipientAddress}
-              onChangeText={setRecipientAddress}
-              placeholder="Enter Solana address"
+              style={[
+                styles.addressInput,
+                { 
+                  color: theme.colors.text,
+                  borderColor: isValidAddress ? theme.colors.success : theme.colors.border,
+                  backgroundColor: theme.colors.background,
+                }
+              ]}
+              placeholder="Enter Solana address (44 characters)"
               placeholderTextColor={theme.colors.muted}
+              value={recipientAddress}
+              onChangeText={handleAddressChange}
               autoCapitalize="none"
               autoCorrect={false}
             />
-          </View>
-
-          {/* Amount */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Amount</Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: theme.colors.background,
-                color: theme.colors.text,
-                borderColor: theme.colors.border
-              }]}
-              value={amount}
-              onChangeText={setAmount}
-              placeholder="0.0"
-              placeholderTextColor={theme.colors.muted}
-              keyboardType="numeric"
-            />
-            {selectedToken && (
-              <Text style={[styles.maxAmount, { color: theme.colors.primary }]}>
-                Max: {selectedToken.balance.toLocaleString()} {selectedToken.symbol}
-              </Text>
-            )}
-          </View>
-
-          {/* Transaction Details */}
-          {selectedToken && amount && recipientAddress && (
-            <View style={styles.transactionDetails}>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: theme.colors.muted }]}>Network Fee</Text>
-                <Text style={[styles.detailValue, { color: theme.colors.text }]}>
-                  ~0.000005 SOL
-                </Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: theme.colors.muted }]}>Estimated Time</Text>
-                <Text style={[styles.detailValue, { color: theme.colors.text }]}>
-                  ~10 seconds
-                </Text>
-              </View>
+            <View style={styles.addressActions}>
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+                onPress={pasteAddress}
+              >
+                <Ionicons name="clipboard-outline" size={20} color="#000" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+                onPress={scanQR}
+              >
+                <Ionicons name="qr-code-outline" size={20} color="#000" />
+              </TouchableOpacity>
             </View>
-          )}
-
-          {/* Send Button */}
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              { 
-                backgroundColor: selectedToken && amount && recipientAddress 
-                  ? theme.colors.primary 
-                  : theme.colors.border 
-              }
-            ]}
-            onPress={handleSend}
-            disabled={!selectedToken || !amount || !recipientAddress}
-          >
-            <Text style={[
-              styles.sendButtonText,
-              { 
-                color: selectedToken && amount && recipientAddress 
-                  ? '#fff' 
-                  : theme.colors.muted 
-              }
+          </View>
+          
+          {recipientAddress.length > 0 && (
+            <AppText style={[
+              styles.validationText,
+              { color: isValidAddress ? theme.colors.success : theme.colors.error }
             ]}>
-              {!selectedToken ? 'Select Token' : 
-               !amount ? 'Enter Amount' : 
-               !recipientAddress ? 'Enter Address' : 'Send'}
-            </Text>
-          </TouchableOpacity>
+              {isValidAddress ? 'Valid Solana address' : 'Invalid address format'}
+            </AppText>
+          )}
         </View>
 
-        {/* Token Selector Modal */}
-        {showTokenSelector && (
-          <View style={styles.modalOverlay}>
-            <TokenSelector />
+        {/* Amount */}
+        <View style={[styles.inputCard, { backgroundColor: theme.colors.card }]}>
+          <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Amount</AppText>
+          
+          <View style={styles.amountInputContainer}>
+            <TextInput
+              style={[
+                styles.amountInput,
+                { 
+                  color: theme.colors.text,
+                  backgroundColor: theme.colors.background,
+                }
+              ]}
+              placeholder="0.0"
+              placeholderTextColor={theme.colors.muted}
+              value={amount}
+              onChangeText={handleAmountChange}
+              keyboardType="numeric"
+            />
+            <TouchableOpacity
+              style={[styles.maxButton, { backgroundColor: theme.colors.primary }]}
+              onPress={setMaxAmount}
+            >
+              <AppText style={styles.maxButtonText}>MAX</AppText>
+            </TouchableOpacity>
           </View>
-        )}
+          
+          <AppText style={[styles.balanceText, { color: theme.colors.muted }]}>
+            Available: {walletInfo.balance.toFixed(9)} SOL
+          </AppText>
+        </View>
+
+        {/* Note (Optional) */}
+        <View style={[styles.inputCard, { backgroundColor: theme.colors.card }]}>
+          <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Note (Optional)</AppText>
+          
+          <TextInput
+            style={[
+              styles.noteInput,
+              { 
+                color: theme.colors.text,
+                backgroundColor: theme.colors.background,
+                borderColor: theme.colors.border,
+              }
+            ]}
+            placeholder="Add a note to this transaction"
+            placeholderTextColor={theme.colors.muted}
+            value={note}
+            onChangeText={setNote}
+            multiline
+            numberOfLines={3}
+          />
+        </View>
+
+        {/* Fee Breakdown */}
+        <View style={[styles.feeCard, { backgroundColor: theme.colors.card }]}>
+          <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Fee Breakdown</AppText>
+          
+          <View style={[styles.feeRow, { borderBottomColor: theme.colors.border }]}>
+            <AppText style={[styles.feeLabel, { color: theme.colors.muted }]}>Network Fee</AppText>
+            <AppText style={[styles.feeValue, { color: theme.colors.text }]}>
+              {networkFee.toFixed(9)} SOL
+            </AppText>
+          </View>
+          
+          <View style={styles.feeRow}>
+            <AppText style={[styles.feeLabel, { color: theme.colors.muted }]}>Total Amount</AppText>
+            <AppText style={[styles.feeValue, { color: theme.colors.text }]}>
+              {totalAmount.toFixed(9)} SOL
+            </AppText>
+          </View>
+        </View>
+
+        {/* Security Notice */}
+        <View style={[styles.securityCard, { backgroundColor: theme.colors.card }]}>
+          <View style={styles.securityHeader}>
+            <Ionicons name="shield-checkmark" size={20} color={theme.colors.success} />
+            <AppText style={[styles.securityTitle, { color: theme.colors.text }]}>Security Notice</AppText>
+          </View>
+          <AppText style={[styles.securityText, { color: theme.colors.muted }]}>
+            Always double-check the recipient address before sending. Transactions cannot be reversed once confirmed.
+          </AppText>
+        </View>
+
+        {/* Send Button */}
+        <TouchableOpacity
+          style={[
+            styles.sendButton,
+            { 
+              backgroundColor: loading || !isValidAddress || !amount ? theme.colors.muted : theme.colors.primary,
+              opacity: loading || !isValidAddress || !amount ? 0.6 : 1,
+            }
+          ]}
+          onPress={handleSend}
+          disabled={loading || !isValidAddress || !amount}
+        >
+          <AppText style={styles.sendButtonText}>
+            {loading ? 'Sending...' : 'Send Transaction'}
+          </AppText>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -307,175 +321,176 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    paddingTop: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   backButton: {
     padding: 8,
   },
-  title: {
+  headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
   },
   placeholder: {
     width: 40,
   },
-  scrollView: {
+  centerContent: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
   },
-  scrollContent: {
-    paddingBottom: 100,
+  noWalletText: {
+    fontSize: 18,
+    fontFamily: 'SpaceGrotesk-SemiBold',
+    textAlign: 'center',
+    marginVertical: 20,
   },
-  sendCard: {
-    margin: 20,
+  connectButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  connectButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  inputCard: {
     padding: 20,
     borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  inputGroup: {
-    marginBottom: 20,
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: 'SpaceGrotesk-Bold',
+    marginBottom: 16,
   },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+  addressInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
-    fontFamily: 'SpaceGrotesk-SemiBold',
   },
-  tokenSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-  },
-  selectedToken: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  addressInput: {
     flex: 1,
-  },
-  tokenIcon: {
-    fontSize: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk-Regular',
     marginRight: 12,
   },
-  tokenDetails: {
-    flex: 1,
+  addressActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  tokenSymbol: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-    fontFamily: 'SpaceGrotesk-SemiBold',
-  },
-  tokenBalance: {
-    fontSize: 12,
-    fontFamily: 'SpaceGrotesk-Regular',
-  },
-  selectTokenText: {
-    fontSize: 16,
-    fontFamily: 'SpaceGrotesk-Regular',
-  },
-  input: {
-    borderWidth: 1,
+  actionButton: {
+    padding: 12,
     borderRadius: 12,
-    padding: 16,
+  },
+  validationText: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  amountInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    fontSize: 18,
+    fontFamily: 'SpaceGrotesk-Bold',
+    marginRight: 12,
+  },
+  maxButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  maxButtonText: {
+    color: '#000',
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  balanceText: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  noteInput: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
     fontSize: 16,
     fontFamily: 'SpaceGrotesk-Regular',
+    textAlignVertical: 'top',
   },
-  maxAmount: {
-    fontSize: 12,
-    marginTop: 4,
-    fontFamily: 'SpaceGrotesk-Regular',
+  feeCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  transactionDetails: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  detailRow: {
+  feeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  feeLabel: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  feeValue: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-SemiBold',
+  },
+  securityCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  securityHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  detailLabel: {
+  securityTitle: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk-Bold',
+    marginLeft: 8,
+  },
+  securityText: {
     fontSize: 14,
     fontFamily: 'SpaceGrotesk-Regular',
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'SpaceGrotesk-SemiBold',
+    lineHeight: 20,
   },
   sendButton: {
-    marginTop: 20,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-  },
-  sendButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'SpaceGrotesk-SemiBold',
-  },
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-    zIndex: 1000,
-  },
-  tokenSelector: {
-    backgroundColor: '#1a1a1a',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '70%',
-  },
-  tokenSelectorHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 20,
   },
-  tokenSelectorTitle: {
+  sendButtonText: {
+    color: '#000',
     fontSize: 18,
-    fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
-  },
-  tokenList: {
-    maxHeight: 400,
-  },
-  tokenItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  tokenInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  tokenBalance: {
-    alignItems: 'flex-end',
-  },
-  tokenBalanceText: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'SpaceGrotesk-SemiBold',
-  },
-  tokenPrice: {
-    fontSize: 12,
-    fontFamily: 'SpaceGrotesk-Regular',
   },
 }); 

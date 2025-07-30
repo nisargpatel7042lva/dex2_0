@@ -2,6 +2,7 @@ import { PublicKey } from '@solana/web3.js';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { AMMService, LiquidityQuote, PoolInfo, SwapQuote } from '../services/AMMService';
 import { Token2022Service } from '../services/Token2022Service';
+import { TokenLaunchConfig, TokenLaunchResult, TokenLaunchService } from '../services/TokenLaunchService';
 import { WalletInfo, WalletService } from '../services/WalletService';
 
 export interface Token2022Mint {
@@ -19,12 +20,16 @@ export interface AppContextType {
   loading: boolean;
   error: string | null;
   servicesInitialized: boolean;
+  token2022Service: Token2022Service | null;
+  tokenLaunchService: TokenLaunchService | null;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   requestAirdrop: (amount: number) => Promise<void>;
   createToken2022Mint: (decimals: number, supply: number) => Promise<PublicKey>;
   enableConfidentialTransfers: (mint: PublicKey) => Promise<void>;
   performConfidentialTransfer: (from: PublicKey, to: PublicKey, amount: number) => Promise<void>;
+  // Token Launch functions
+  createTokenLaunch: (config: TokenLaunchConfig) => Promise<TokenLaunchResult>;
   // AMM functions
   ammService: AMMService | null;
   pools: PoolInfo[];
@@ -50,6 +55,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [servicesInitialized, setServicesInitialized] = useState(false);
   const [walletService, setWalletService] = useState<WalletService | null>(null);
   const [token2022Service, setToken2022Service] = useState<Token2022Service | null>(null);
+  const [tokenLaunchService, setTokenLaunchService] = useState<TokenLaunchService | null>(null);
   const [ammService, setAmmService] = useState<AMMService | null>(null);
   const [pools, setPools] = useState<PoolInfo[]>([]);
 
@@ -71,6 +77,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         
         const token2022Svc = new Token2022Service(connection);
         console.log('Token2022Service created successfully');
+
+        const tokenLaunchSvc = new TokenLaunchService(connection);
+        console.log('TokenLaunchService created successfully');
         
         const ammProgramId = new PublicKey('11111111111111111111111111111111');
         console.log('AMM Program ID:', ammProgramId.toString());
@@ -80,6 +89,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
         setWalletService(walletSvc);
         setToken2022Service(token2022Svc);
+        setTokenLaunchService(tokenLaunchSvc);
         setAmmService(ammSvc);
         setServicesInitialized(true);
         
@@ -122,7 +132,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   const disconnectWallet = () => {
     setWalletInfo(null);
-    setError(null);
+      setError(null);
   };
 
   const requestAirdrop = async (amount: number) => {
@@ -193,6 +203,23 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const performConfidentialTransfer = async (from: PublicKey, to: PublicKey, amount: number): Promise<void> => {
     // Placeholder implementation
     console.log('Performing confidential transfer from:', from.toString(), 'to:', to.toString(), 'amount:', amount);
+  };
+
+  // Token Launch Functions
+  const createTokenLaunch = async (config: TokenLaunchConfig): Promise<TokenLaunchResult> => {
+    if (!tokenLaunchService || !walletInfo) {
+      throw new Error('Token launch service not initialized or wallet not connected');
+    }
+
+    try {
+      console.log('Creating token launch:', config);
+      const result = await tokenLaunchService.createToken(config);
+      console.log('Token launch created successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('Error creating token launch:', error);
+      throw error;
+    }
   };
 
   // AMM Functions
@@ -336,12 +363,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     loading,
     error,
     servicesInitialized,
+    token2022Service,
+    tokenLaunchService,
     connectWallet,
     disconnectWallet,
     requestAirdrop,
     createToken2022Mint,
     enableConfidentialTransfers,
     performConfidentialTransfer,
+    createTokenLaunch,
     ammService,
     pools,
     getSwapQuote,

@@ -89,7 +89,7 @@ export default function SignIn() {
 
   const handleConnectWallet = async () => {
     try {
-      setLoadingText('    Connecting to your wallet...');
+      setLoadingText('Connecting to your wallet...');
       console.log('=== CALLING CONNECT WALLET ===');
       await connectWallet();
       // Wallet connection automatically handles authentication
@@ -97,9 +97,24 @@ export default function SignIn() {
     } catch (error) {
       console.error('Error connecting wallet:', error);
       
+      // Show more specific error messages
+      let errorMessage = 'Failed to connect wallet. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          errorMessage = 'Wallet connection timed out. Please ensure you have a Solana wallet app installed and try again.';
+        } else if (error.message.includes('cancelled')) {
+          errorMessage = 'Wallet connection was cancelled. Please try again.';
+        } else if (error.message.includes('No wallet account')) {
+          errorMessage = 'No wallet account found. Please make sure your wallet is unlocked and has accounts.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       Alert.alert(
         'Wallet Connection Error', 
-        'Failed to connect wallet. Please make sure you have a Solana wallet app installed (like Phantom, Solflare, or Slope) and try again.',
+        errorMessage,
         [{ text: 'OK' }]
       );
     }
