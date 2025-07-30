@@ -215,7 +215,7 @@ export default function SignIn() {
             ) : (
               <>
                 <Ionicons name="wallet" size={24} color="#000" />
-                <Text style={styles.primaryButtonText}>Connect Wallet</Text>
+                <Text style={styles.primaryButtonText}> Connect Wallet</Text>
               </>
             )}
           </TouchableOpacity>
