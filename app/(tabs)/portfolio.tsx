@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Add padding for bottom tab bar
+    paddingBottom: 100, // Add bottom padding to clear the navbar
   },
   header: {
     paddingHorizontal: 20,
@@ -990,5 +990,6 @@ const styles = StyleSheet.create({
   },
   pageContent: {
     flex: 1,
+    paddingBottom: 100, // Add bottom padding to clear the navbar
   },
 }); 

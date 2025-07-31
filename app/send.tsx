@@ -363,6 +363,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
+    paddingBottom: 100, // Add bottom padding to clear the navbar
   },
   inputCard: {
     padding: 20,
