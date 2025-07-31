@@ -1,3 +1,4 @@
+import { AppText } from '@/components/app-text';
 import { useAppTheme } from '@/components/app-theme';
 import { NotificationButton } from '@/components/NotificationButton';
 import { NotificationModal } from '@/components/NotificationModal';
@@ -10,7 +11,6 @@ import {
     RefreshControl,
     ScrollView,
     StyleSheet,
-    Text,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -147,12 +147,12 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.headerLeft}>
-              <Text style={[styles.greeting, { color: theme.colors.text }]}>
+              <AppText style={[styles.greeting, { color: theme.colors.text }]}>
                 Welcome Back!
-            </Text>
-              <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
+              </AppText>
+              <AppText style={[styles.subtitle, { color: theme.colors.muted }]}>
                 Trade Token-2022 with Transfer Hooks
-            </Text>
+              </AppText>
             </View>
             <NotificationButton
               onPress={() => setNotificationModalVisible(true)}
@@ -169,17 +169,17 @@ export default function HomeScreen() {
                   <Ionicons name="wallet" size={20} color={theme.colors.primary} />
                 </View>
                 <View style={styles.walletInfo}>
-                  <Text style={[styles.walletTitle, { color: theme.colors.text }]}>Connected Wallet</Text>
-                  <Text style={[styles.walletAddress, { color: theme.colors.muted }]}>
+                  <AppText style={[styles.walletTitle, { color: theme.colors.text }]}>Connected Wallet</AppText>
+                  <AppText style={[styles.walletAddress, { color: theme.colors.muted }]}>
                     {walletInfo.publicKey.toString().substring(0, 8)}...{walletInfo.publicKey.toString().substring(walletInfo.publicKey.toString().length - 8)}
-                  </Text>
+                  </AppText>
                 </View>
               </View>
               <View style={styles.walletBalance}>
-                <Text style={[styles.balanceLabel, { color: theme.colors.muted }]}>Balance</Text>
-                <Text style={[styles.balanceAmount, { color: theme.colors.primary }]}>
+                <AppText style={[styles.balanceLabel, { color: theme.colors.muted }]}>Balance</AppText>
+                <AppText style={[styles.balanceAmount, { color: theme.colors.primary }]}>
                   {walletInfo.balance.toFixed(4)} SOL
-                </Text>
+                </AppText>
               </View>
               <View style={styles.walletActions}>
                 <Pressable 
@@ -188,7 +188,7 @@ export default function HomeScreen() {
                   android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: false }}
                 >
                   <Ionicons name="add-circle-outline" size={16} color="#000" />
-                  <Text style={[styles.airdropText, { color: '#000' }]}>Request Airdrop</Text>
+                  <AppText style={[styles.airdropText, { color: '#000' }]}>Request Airdrop</AppText>
                 </Pressable>
                 
                 <Pressable 
@@ -197,7 +197,7 @@ export default function HomeScreen() {
                   android_ripple={{ color: 'rgba(99, 102, 241, 0.1)', borderless: false }}
                 >
                   <Ionicons name="notifications" size={16} color={theme.colors.primary} />
-                  <Text style={[styles.sampleButtonText, { color: theme.colors.primary }]}>Add Sample</Text>
+                  <AppText style={[styles.sampleText, { color: theme.colors.primary }]}>Add Sample</AppText>
                 </Pressable>
               </View>
             </View>
@@ -207,9 +207,9 @@ export default function HomeScreen() {
         {/* Market Overview */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Token-2022 Market</Text>
+            <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Token-2022 Market</AppText>
             <TouchableOpacity>
-              <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</Text>
+              <AppText style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</AppText>
             </TouchableOpacity>
           </View>
           
@@ -217,37 +217,37 @@ export default function HomeScreen() {
             <View style={[styles.marketCard, { backgroundColor: theme.colors.card }]}>
               <View style={styles.marketCardHeader}>
                 <Ionicons name="trending-up" size={20} color={theme.colors.success} />
-                <Text style={[styles.marketCardTitle, { color: theme.colors.text }]}>Total Volume</Text>
+                <AppText style={[styles.marketCardTitle, { color: theme.colors.text }]}>Total Volume</AppText>
               </View>
-              <Text style={[styles.marketCardValue, { color: theme.colors.text }]}>$2.4B</Text>
-              <Text style={[styles.marketCardChange, { color: theme.colors.success }]}>+12.5%</Text>
+              <AppText style={[styles.marketCardValue, { color: theme.colors.text }]}>$2.4B</AppText>
+              <AppText style={[styles.marketCardChange, { color: theme.colors.success }]}>+12.5%</AppText>
             </View>
 
             <View style={[styles.marketCard, { backgroundColor: theme.colors.card }]}>
               <View style={styles.marketCardHeader}>
                 <Ionicons name="link" size={20} color={theme.colors.primary} />
-                <Text style={[styles.marketCardTitle, { color: theme.colors.text }]}>Transfer Hooks</Text>
+                <AppText style={[styles.marketCardTitle, { color: theme.colors.text }]}>Transfer Hooks</AppText>
               </View>
-              <Text style={[styles.marketCardValue, { color: theme.colors.text }]}>892</Text>
-              <Text style={[styles.marketCardChange, { color: theme.colors.success }]}>+23.1%</Text>
+              <AppText style={[styles.marketCardValue, { color: theme.colors.text }]}>892</AppText>
+              <AppText style={[styles.marketCardChange, { color: theme.colors.success }]}>+23.1%</AppText>
             </View>
 
             <View style={[styles.marketCard, { backgroundColor: theme.colors.card }]}>
               <View style={styles.marketCardHeader}>
                 <Ionicons name="eye-off" size={20} color={theme.colors.accent} />
-                <Text style={[styles.marketCardTitle, { color: theme.colors.text }]}>Confidential</Text>
+                <AppText style={[styles.marketCardTitle, { color: theme.colors.text }]}>Confidential</AppText>
               </View>
-              <Text style={[styles.marketCardValue, { color: theme.colors.text }]}>156</Text>
-              <Text style={[styles.marketCardChange, { color: theme.colors.success }]}>+15.3%</Text>
+              <AppText style={[styles.marketCardValue, { color: theme.colors.text }]}>156</AppText>
+              <AppText style={[styles.marketCardChange, { color: theme.colors.success }]}>+15.3%</AppText>
             </View>
 
             <View style={[styles.marketCard, { backgroundColor: theme.colors.card }]}>
               <View style={styles.marketCardHeader}>
                 <Ionicons name="swap-horizontal" size={20} color={theme.colors.warning} />
-                <Text style={[styles.marketCardTitle, { color: theme.colors.text }]}>Active Pairs</Text>
+                <AppText style={[styles.marketCardTitle, { color: theme.colors.text }]}>Active Pairs</AppText>
               </View>
-              <Text style={[styles.marketCardValue, { color: theme.colors.text }]}>1,247</Text>
-              <Text style={[styles.marketCardChange, { color: theme.colors.success }]}>+8.2%</Text>
+              <AppText style={[styles.marketCardValue, { color: theme.colors.text }]}>1,247</AppText>
+              <AppText style={[styles.marketCardChange, { color: theme.colors.success }]}>+8.2%</AppText>
             </View>
           </View>
         </View>
@@ -255,9 +255,9 @@ export default function HomeScreen() {
         {/* Recent Token-2022 Launches */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Launches</Text>
+            <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Launches</AppText>
             <TouchableOpacity>
-              <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</Text>
+              <AppText style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</AppText>
             </TouchableOpacity>
           </View>
 
@@ -272,22 +272,22 @@ export default function HomeScreen() {
                   <View style={styles.launchHeader}>
                     <View style={styles.launchLeft}>
                       <View style={[styles.tokenIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                        <Text style={[styles.tokenSymbol, { color: theme.colors.primary }]}>{launch.symbol}</Text>
+                        <AppText style={[styles.tokenSymbol, { color: theme.colors.primary }]}>{launch.symbol}</AppText>
                       </View>
                       <View style={styles.launchInfo}>
-                        <Text style={[styles.launchName, { color: theme.colors.text }]}>{launch.name}</Text>
-                        <Text style={[styles.launchDescription, { color: theme.colors.muted }]}>{launch.description}</Text>
-                        <Text style={[styles.launchDate, { color: theme.colors.muted }]}>Launched {launch.launchDate}</Text>
+                        <AppText style={[styles.launchName, { color: theme.colors.text }]}>{launch.name}</AppText>
+                        <AppText style={[styles.launchDescription, { color: theme.colors.muted }]}>{launch.description}</AppText>
+                        <AppText style={[styles.launchDate, { color: theme.colors.muted }]}>Launched {launch.launchDate}</AppText>
                       </View>
                     </View>
                     <View style={styles.launchRight}>
-                      <Text style={[styles.launchVolume, { color: theme.colors.text }]}>{launch.volume24h}</Text>
-                      <Text style={[
+                      <AppText style={[styles.launchVolume, { color: theme.colors.text }]}>{launch.volume24h}</AppText>
+                      <AppText style={[
                         styles.launchChange, 
                         { color: launch.isPositive ? theme.colors.success : theme.colors.error }
                       ]}>
                         {launch.priceChange}
-                </Text>
+                </AppText>
                     </View>
                   </View>
                   
@@ -295,13 +295,13 @@ export default function HomeScreen() {
                     {launch.transferHookEnabled && (
                       <View style={[styles.featureBadge, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
                         <Ionicons name="link" size={12} color={theme.colors.primary} />
-                        <Text style={[styles.featureText, { color: theme.colors.primary }]}>Transfer Hooks</Text>
+                        <AppText style={[styles.featureText, { color: theme.colors.primary }]}>Transfer Hooks</AppText>
                       </View>
                     )}
                     {launch.confidentialTransferEnabled && (
                       <View style={[styles.featureBadge, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
                         <Ionicons name="eye-off" size={12} color={theme.colors.success} />
-                        <Text style={[styles.featureText, { color: theme.colors.success }]}>Confidential</Text>
+                        <AppText style={[styles.featureText, { color: theme.colors.success }]}>Confidential</AppText>
                       </View>
                     )}
                   </View>
@@ -313,39 +313,39 @@ export default function HomeScreen() {
 
         {/* Token-2022 Features Highlight */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Token-2022 Features</Text>
+          <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Token-2022 Features</AppText>
           
           <View style={styles.featuresGrid}>
             <View style={[styles.featureCard, { backgroundColor: theme.colors.card }]}>
               <View style={[styles.featureIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
                 <Ionicons name="link" size={24} color={theme.colors.primary} />
               </View>
-              <Text style={[styles.featureTitle, { color: theme.colors.text }]}>Transfer Hooks</Text>
-              <Text style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Custom transfer logic with pre-transfer simulation</Text>
+              <AppText style={[styles.featureTitle, { color: theme.colors.text }]}>Transfer Hooks</AppText>
+              <AppText style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Custom transfer logic with pre-transfer simulation</AppText>
             </View>
 
             <View style={[styles.featureCard, { backgroundColor: theme.colors.card }]}>
               <View style={[styles.featureIcon, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
                 <Ionicons name="eye-off" size={24} color={theme.colors.success} />
               </View>
-              <Text style={[styles.featureTitle, { color: theme.colors.text }]}>Confidential Transfers</Text>
-              <Text style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Private, encrypted token transfers</Text>
+              <AppText style={[styles.featureTitle, { color: theme.colors.text }]}>Confidential Transfers</AppText>
+              <AppText style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Private, encrypted token transfers</AppText>
             </View>
 
             <View style={[styles.featureCard, { backgroundColor: theme.colors.card }]}>
               <View style={[styles.featureIcon, { backgroundColor: 'rgba(251, 191, 36, 0.1)' }]}>
                 <Ionicons name="shield-checkmark" size={24} color={theme.colors.warning} />
               </View>
-              <Text style={[styles.featureTitle, { color: theme.colors.text }]}>Safe Hook Approval</Text>
-              <Text style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Permissionless but safe hook approval system</Text>
+              <AppText style={[styles.featureTitle, { color: theme.colors.text }]}>Safe Hook Approval</AppText>
+              <AppText style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Permissionless but safe hook approval system</AppText>
             </View>
 
             <View style={[styles.featureCard, { backgroundColor: theme.colors.card }]}>
               <View style={[styles.featureIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
                 <Ionicons name="swap-horizontal" size={24} color={theme.colors.error} />
               </View>
-              <Text style={[styles.featureTitle, { color: theme.colors.text }]}>AMM Integration</Text>
-              <Text style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Direct integration with existing AMM protocols</Text>
+              <AppText style={[styles.featureTitle, { color: theme.colors.text }]}>AMM Integration</AppText>
+              <AppText style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Direct integration with existing AMM protocols</AppText>
             </View>
           </View>
         </View>
@@ -386,10 +386,9 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   greeting: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: 32,
     fontFamily: 'SpaceGrotesk-Bold',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
@@ -422,9 +421,8 @@ const styles = StyleSheet.create({
   },
   walletTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginBottom: 2,
   },
   walletAddress: {
     fontSize: 12,
@@ -440,7 +438,6 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     fontSize: 24,
-    fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
   },
   walletActions: {
@@ -458,9 +455,8 @@ const styles = StyleSheet.create({
   },
   airdropText: {
     fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginLeft: 6,
   },
   sampleButton: {
     flexDirection: 'row',
@@ -471,15 +467,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
-  sampleButtonText: {
+  sampleText: {
     fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginLeft: 6,
   },
   section: {
-    paddingHorizontal: 20,
     marginBottom: 24,
+    paddingHorizontal: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -488,13 +483,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
     fontFamily: 'SpaceGrotesk-Bold',
   },
   seeAllText: {
     fontSize: 14,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   marketGrid: {
@@ -515,31 +508,28 @@ const styles = StyleSheet.create({
   marketCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   marketCardTitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginLeft: 6,
+    fontSize: 14,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginLeft: 8,
   },
   marketCardValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: 20,
     fontFamily: 'SpaceGrotesk-Bold',
+    marginBottom: 4,
   },
   marketCardChange: {
     fontSize: 12,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   launchesList: {
     gap: 12,
   },
   launchItem: {
-    padding: 16,
     borderRadius: 12,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -549,7 +539,7 @@ const styles = StyleSheet.create({
   launchHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
   launchLeft: {
@@ -567,7 +557,6 @@ const styles = StyleSheet.create({
   },
   tokenSymbol: {
     fontSize: 16,
-    fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
   },
   launchInfo: {
@@ -575,9 +564,8 @@ const styles = StyleSheet.create({
   },
   launchName: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginBottom: 2,
   },
   launchDescription: {
     fontSize: 12,
@@ -593,13 +581,11 @@ const styles = StyleSheet.create({
   },
   launchVolume: {
     fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginBottom: 2,
   },
   launchChange: {
     fontSize: 12,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   launchFeatures: {
@@ -615,9 +601,8 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 10,
-    fontWeight: '500',
-    marginLeft: 4,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginLeft: 4,
   },
   featuresGrid: {
     flexDirection: 'row',
@@ -645,10 +630,9 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk-SemiBold',
     marginBottom: 4,
     textAlign: 'center',
-    fontFamily: 'SpaceGrotesk-SemiBold',
   },
   featureSubtitle: {
     fontSize: 12,

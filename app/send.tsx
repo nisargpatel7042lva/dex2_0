@@ -5,15 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
-export default function SendScreen() {
+export default function SendScreen({ hideHeader = false }: { hideHeader?: boolean }) {
   const { theme } = useAppTheme();
   const { walletInfo } = useApp();
   
@@ -123,13 +123,15 @@ export default function SendScreen() {
   if (!walletInfo) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <AppText style={[styles.headerTitle, { color: theme.colors.text }]}>Send</AppText>
-          <View style={styles.placeholder} />
-        </View>
+        {!hideHeader && (
+          <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+            <AppText style={[styles.headerTitle, { color: theme.colors.text }]}>Send</AppText>
+            <View style={styles.placeholder} />
+          </View>
+        )}
         
         <View style={styles.centerContent}>
           <Ionicons name="wallet-outline" size={64} color={theme.colors.muted} />
@@ -150,13 +152,15 @@ export default function SendScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <AppText style={[styles.headerTitle, { color: theme.colors.text }]}>Send</AppText>
-        <View style={styles.placeholder} />
-      </View>
+      {!hideHeader && (
+        <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <AppText style={[styles.headerTitle, { color: theme.colors.text }]}>Send</AppText>
+          <View style={styles.placeholder} />
+        </View>
+      )}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Recipient Address */}

@@ -1,3 +1,4 @@
+import { AppText } from '@/components/app-text';
 import { useAppTheme } from '@/components/app-theme';
 import { useApp } from '@/src/context/AppContext';
 import { useNotifications } from '@/src/context/NotificationContext';
@@ -5,14 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { PublicKey } from '@solana/web3.js';
 import { useState } from 'react';
 import {
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 interface TradingPool {
@@ -179,18 +179,23 @@ export default function TradingScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+          />
         }
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.text }]}>Trading</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
-            Trade Token-2022 with Transfer Hooks
-          </Text>
+          <AppText style={[styles.title, { color: theme.colors.text }]}>Trading</AppText>
+          <AppText style={[styles.subtitle, { color: theme.colors.secondary }]}>
+            Swap Token-2022 with Transfer Hooks
+          </AppText>
         </View>
 
         {/* Search and Filters */}
@@ -226,12 +231,12 @@ export default function TradingScreen() {
                 onPress={() => setSelectedFilter(filter.key)}
                 activeOpacity={0.7}
               >
-                <Text style={[
+                <AppText style={[
                   styles.filterText,
                   { color: selectedFilter === filter.key ? '#000' : theme.colors.text }
                 ]}>
                   {filter.label}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -241,9 +246,9 @@ export default function TradingScreen() {
         {selectedPool && (
           <View style={[styles.tradingCard, { backgroundColor: theme.colors.card }]}>
             <View style={styles.tradingHeader}>
-              <Text style={[styles.tradingTitle, { color: theme.colors.text }]}>
+              <AppText style={[styles.tradingTitle, { color: theme.colors.text }]}>
                 {selectedPool.tokenASymbol}/{selectedPool.tokenBSymbol}
-              </Text>
+              </AppText>
               <TouchableOpacity onPress={() => setSelectedPool(null)}>
                 <Ionicons name="close" size={24} color={theme.colors.muted} />
               </TouchableOpacity>
@@ -251,9 +256,9 @@ export default function TradingScreen() {
 
             <View style={styles.swapContainer}>
               <View style={styles.swapInputContainer}>
-                <Text style={[styles.swapLabel, { color: theme.colors.muted }]}>
+                <AppText style={[styles.swapLabel, { color: theme.colors.muted }]}>
                   {isTokenAToB ? selectedPool.tokenASymbol : selectedPool.tokenBSymbol}
-                </Text>
+                </AppText>
                 <TextInput
                   style={[styles.swapInput, { color: theme.colors.text }]}
                   placeholder="0.0"
@@ -272,34 +277,34 @@ export default function TradingScreen() {
               </TouchableOpacity>
 
               <View style={styles.swapOutputContainer}>
-                <Text style={[styles.swapLabel, { color: theme.colors.muted }]}>
+                <AppText style={[styles.swapLabel, { color: theme.colors.muted }]}>
                   {isTokenAToB ? selectedPool.tokenBSymbol : selectedPool.tokenASymbol}
-                </Text>
-                <Text style={[styles.swapOutput, { color: theme.colors.text }]}>
+                </AppText>
+                <AppText style={[styles.swapOutput, { color: theme.colors.text }]}>
                   {swapQuote ? swapQuote.amountOut.toFixed(6) : '0.0'}
-                </Text>
+                </AppText>
               </View>
             </View>
 
             {swapQuote && (
               <View style={styles.quoteInfo}>
                 <View style={styles.quoteRow}>
-                  <Text style={[styles.quoteLabel, { color: theme.colors.muted }]}>Price Impact:</Text>
-                  <Text style={[styles.quoteValue, { color: theme.colors.text }]}>
+                  <AppText style={[styles.quoteLabel, { color: theme.colors.muted }]}>Price Impact:</AppText>
+                  <AppText style={[styles.quoteValue, { color: theme.colors.text }]}>
                     {swapQuote.priceImpact.toFixed(2)}%
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.quoteRow}>
-                  <Text style={[styles.quoteLabel, { color: theme.colors.muted }]}>Fee:</Text>
-                  <Text style={[styles.quoteValue, { color: theme.colors.text }]}>
+                  <AppText style={[styles.quoteLabel, { color: theme.colors.muted }]}>Fee:</AppText>
+                  <AppText style={[styles.quoteValue, { color: theme.colors.text }]}>
                     {swapQuote.fee.toFixed(6)}
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.quoteRow}>
-                  <Text style={[styles.quoteLabel, { color: theme.colors.muted }]}>Slippage:</Text>
-                  <Text style={[styles.quoteValue, { color: theme.colors.text }]}>
+                  <AppText style={[styles.quoteLabel, { color: theme.colors.muted }]}>Slippage:</AppText>
+                  <AppText style={[styles.quoteValue, { color: theme.colors.text }]}>
                     {swapQuote.slippage}%
-                  </Text>
+                  </AppText>
                 </View>
               </View>
             )}
@@ -310,9 +315,9 @@ export default function TradingScreen() {
                 onPress={handleSwap}
                 disabled={!swapQuote || loading}
               >
-                <Text style={[styles.swapButtonText, { color: '#000' }]}>
+                <AppText style={[styles.swapButtonText, { color: '#000' }]}>
                   {loading ? 'Swapping...' : 'Swap'}
-                </Text>
+                </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -320,9 +325,9 @@ export default function TradingScreen() {
                 onPress={handleAddLiquidity}
                 disabled={loading}
               >
-                <Text style={[styles.liquidityButtonText, { color: theme.colors.primary }]}>
+                <AppText style={[styles.liquidityButtonText, { color: theme.colors.primary }]}>
                   Add Liquidity
-                </Text>
+                </AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -330,13 +335,13 @@ export default function TradingScreen() {
 
         {/* Pools List */}
         <View style={styles.poolsContainer}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Available Pools</Text>
+          <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Available Pools</AppText>
           
           {loading ? (
             <View style={[styles.emptyState, { backgroundColor: theme.colors.card }]}>
-              <Text style={[styles.emptyStateText, { color: theme.colors.muted }]}>
+              <AppText style={[styles.emptyStateText, { color: theme.colors.muted }]}>
                 Loading pools...
-              </Text>
+              </AppText>
             </View>
           ) : (
             <>
@@ -350,12 +355,12 @@ export default function TradingScreen() {
                   >
                     <View style={styles.poolHeader}>
                       <View style={styles.poolTokens}>
-                        <Text style={[styles.poolPair, { color: theme.colors.text }]}>
+                        <AppText style={[styles.poolPair, { color: theme.colors.text }]}>
                           {pool.tokenASymbol}/{pool.tokenBSymbol}
-                        </Text>
-                        <Text style={[styles.poolFee, { color: theme.colors.muted }]}>
+                        </AppText>
+                        <AppText style={[styles.poolFee, { color: theme.colors.muted }]}>
                           {pool.feeRate}% fee
-                        </Text>
+                        </AppText>
                       </View>
                       <View style={styles.poolStatus}>
                         <View 
@@ -364,49 +369,49 @@ export default function TradingScreen() {
                             { backgroundColor: pool.isActive ? '#10b981' : '#ef4444' }
                           ]}
                         >
-                          <Text style={styles.statusText}>
+                          <AppText style={styles.statusText}>
                             {pool.isActive ? 'Active' : 'Inactive'}
-                          </Text>
+                          </AppText>
                         </View>
                       </View>
                     </View>
 
                     <View style={styles.poolStats}>
                       <View style={styles.statItem}>
-                        <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Price</Text>
-                        <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                        <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>Price</AppText>
+                        <AppText style={[styles.statValue, { color: theme.colors.text }]}>
                           ${formatPrice(pool.price)}
-                        </Text>
+                        </AppText>
                       </View>
                       <View style={styles.statItem}>
-                        <Text style={[styles.statLabel, { color: theme.colors.muted }]}>24h Change</Text>
-                        <Text style={[
+                        <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>24h Change</AppText>
+                        <AppText style={[
                           styles.statValue,
                           { color: pool.priceChange24h >= 0 ? '#10b981' : '#ef4444' }
                         ]}>
                           {pool.priceChange24h >= 0 ? '+' : ''}{pool.priceChange24h.toFixed(2)}%
-                        </Text>
+                        </AppText>
                       </View>
                       <View style={styles.statItem}>
-                        <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Volume</Text>
-                        <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                        <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>Volume</AppText>
+                        <AppText style={[styles.statValue, { color: theme.colors.text }]}>
                           {formatNumber(pool.volume24h)}
-                        </Text>
+                        </AppText>
                       </View>
                       <View style={styles.statItem}>
-                        <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Liquidity</Text>
-                        <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                        <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>Liquidity</AppText>
+                        <AppText style={[styles.statValue, { color: theme.colors.text }]}>
                           {formatNumber(pool.liquidity)}
-                        </Text>
+                        </AppText>
                       </View>
                     </View>
                   </TouchableOpacity>
                 ))
               ) : (
                 <View style={[styles.emptyState, { backgroundColor: theme.colors.card }]}>
-                  <Text style={[styles.emptyStateText, { color: theme.colors.muted }]}>
+                  <AppText style={[styles.emptyStateText, { color: theme.colors.muted }]}>
                     No pools found
-                  </Text>
+                  </AppText>
                 </View>
               )}
             </>
@@ -424,16 +429,18 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingTop: 20, // Add top padding to match app theme
+  },
   header: {
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: 32,
     fontFamily: 'SpaceGrotesk-Bold',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
@@ -483,8 +490,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   tradingTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
     fontFamily: 'SpaceGrotesk-Bold',
   },
   swapContainer: {
@@ -558,7 +564,6 @@ const styles = StyleSheet.create({
   },
   swapButtonText: {
     fontSize: 16,
-    fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
   },
   liquidityButton: {
@@ -570,7 +575,6 @@ const styles = StyleSheet.create({
   },
   liquidityButtonText: {
     fontSize: 16,
-    fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
   },
   poolsContainer: {
@@ -579,7 +583,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
     marginBottom: 16,
     fontFamily: 'SpaceGrotesk-Bold',
   },
@@ -599,7 +602,6 @@ const styles = StyleSheet.create({
   },
   poolPair: {
     fontSize: 18,
-    fontWeight: 'bold',
     marginBottom: 4,
     fontFamily: 'SpaceGrotesk-Bold',
   },
@@ -617,7 +619,6 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    fontWeight: 'bold',
     color: '#fff',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
@@ -635,7 +636,6 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 14,
-    fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   emptyState: {

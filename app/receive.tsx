@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-export default function ReceiveScreen() {
+export default function ReceiveScreen({ hideHeader = false }: { hideHeader?: boolean }) {
   const { theme } = useAppTheme();
   const { walletInfo } = useApp();
   const [copied, setCopied] = useState(false);
@@ -22,9 +22,9 @@ export default function ReceiveScreen() {
 
   const copyToClipboard = async () => {
     try {
-      await Clipboard.setString(walletAddress);
+      await Clipboard.setString(walletInfo?.publicKey.toString() || '');
       setCopied(true);
-      Alert.alert('Copied!', 'Wallet address copied to clipboard');
+      Alert.alert('Copied!', 'Address copied to clipboard');
       
       // Reset copied state after 2 seconds
       setTimeout(() => setCopied(false), 2000);
@@ -50,13 +50,15 @@ export default function ReceiveScreen() {
   if (!walletInfo) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <AppText style={[styles.headerTitle, { color: theme.colors.text }]}>Receive</AppText>
-          <View style={styles.placeholder} />
-        </View>
+        {!hideHeader && (
+          <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+            <AppText style={[styles.headerTitle, { color: theme.colors.text }]}>Receive</AppText>
+            <View style={styles.placeholder} />
+          </View>
+        )}
         
         <View style={styles.centerContent}>
           <Ionicons name="wallet-outline" size={64} color={theme.colors.muted} />
@@ -77,15 +79,17 @@ export default function ReceiveScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <AppText style={[styles.headerTitle, { color: theme.colors.text }]}>Receive</AppText>
-        <TouchableOpacity onPress={shareAddress} style={styles.shareButton}>
-          <Ionicons name="share-outline" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-      </View>
+      {!hideHeader && (
+        <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <AppText style={[styles.headerTitle, { color: theme.colors.text }]}>Receive</AppText>
+          <TouchableOpacity onPress={shareAddress} style={styles.shareButton}>
+            <Ionicons name="share-outline" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* QR Code Section */}

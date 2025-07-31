@@ -1,16 +1,16 @@
+import { AppText } from '@/components/app-text';
 import { useAppTheme } from '@/components/app-theme';
 import { useAuth } from '@/components/auth/auth-provider';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 const SettingItem = ({ 
@@ -51,13 +51,13 @@ const SettingItem = ({
           />
         </View>
         <View style={styles.settingContent}>
-          <Text style={[styles.settingTitle, { color: danger ? theme.colors.error : theme.colors.text }]}>
+          <AppText style={[styles.settingTitle, { color: danger ? theme.colors.error : theme.colors.text }]}>
             {title}
-          </Text>
+          </AppText>
           {subtitle && (
-            <Text style={[styles.settingSubtitle, { color: theme.colors.muted }]}>
+            <AppText style={[styles.settingSubtitle, { color: theme.colors.muted }]}>
               {subtitle}
-            </Text>
+            </AppText>
           )}
         </View>
       </View>
@@ -82,9 +82,9 @@ const SectionHeader = ({ title }: { title: string }) => {
   const { theme } = useAppTheme();
   
   return (
-    <Text style={[styles.sectionHeader, { color: theme.colors.primary }]}>
+    <AppText style={[styles.sectionHeader, { color: theme.colors.primary }]}>
       {title}
-    </Text>
+    </AppText>
   );
 };
 
@@ -147,13 +147,17 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.text }]}>Settings</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
-            Configure your app preferences and manage your wallet
-          </Text>
+          <AppText style={[styles.title, { color: theme.colors.text }]}>Settings</AppText>
+          <AppText style={[styles.subtitle, { color: theme.colors.secondary }]}>
+            Manage your app preferences
+          </AppText>
         </View>
 
         {/* Wallet Section */}
@@ -168,26 +172,26 @@ export default function SettingsScreen() {
                     <Ionicons name="wallet" size={24} color={theme.colors.primary} />
                   </View>
                   <View style={styles.walletDetails}>
-                    <Text style={[styles.walletTitle, { color: theme.colors.text }]}>Connected Wallet</Text>
-                    <Text style={[styles.walletAddress, { color: theme.colors.muted }]}>
+                    <AppText style={[styles.walletTitle, { color: theme.colors.text }]}>Connected Wallet</AppText>
+                    <AppText style={[styles.walletAddress, { color: theme.colors.muted }]}>
                       {walletInfo.publicKey.toString().substring(0, 8)}...{walletInfo.publicKey.toString().substring(walletInfo.publicKey.toString().length - 8)}
-                    </Text>
-                    <Text style={[styles.walletBalance, { color: theme.colors.primary }]}>
+                    </AppText>
+                    <AppText style={[styles.walletBalance, { color: theme.colors.primary }]}>
                       {walletInfo.balance.toFixed(4)} SOL
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
                 
                 <View style={styles.walletStats}>
                   <View style={styles.walletStat}>
-                    <Text style={[styles.walletStatLabel, { color: theme.colors.muted }]}>Token-2022 Mints</Text>
-                    <Text style={[styles.walletStatValue, { color: theme.colors.text }]}>
+                    <AppText style={[styles.walletStatLabel, { color: theme.colors.muted }]}>Token-2022 Mints</AppText>
+                    <AppText style={[styles.walletStatValue, { color: theme.colors.text }]}>
                       {token2022Mints.length}
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={styles.walletStat}>
-                    <Text style={[styles.walletStatLabel, { color: theme.colors.muted }]}>Network</Text>
-                    <Text style={[styles.walletStatValue, { color: theme.colors.text }]}>Devnet</Text>
+                    <AppText style={[styles.walletStatLabel, { color: theme.colors.muted }]}>Network</AppText>
+                    <AppText style={[styles.walletStatValue, { color: theme.colors.text }]}>Devnet</AppText>
                   </View>
                 </View>
               </View>
@@ -210,10 +214,10 @@ export default function SettingsScreen() {
           ) : (
             <View style={[styles.noWallet, { backgroundColor: theme.colors.card }]}>
               <Ionicons name="wallet-outline" size={48} color={theme.colors.muted} />
-              <Text style={[styles.noWalletTitle, { color: theme.colors.text }]}>No Wallet Connected</Text>
-              <Text style={[styles.noWalletSubtitle, { color: theme.colors.muted }]}>
+              <AppText style={[styles.noWalletTitle, { color: theme.colors.text }]}>No Wallet Connected</AppText>
+              <AppText style={[styles.noWalletSubtitle, { color: theme.colors.muted }]}>
                 Connect a wallet to manage your Token-2022 assets
-              </Text>
+              </AppText>
             </View>
           )}
         </View>
@@ -314,16 +318,16 @@ export default function SettingsScreen() {
           
           <View style={[styles.appInfo, { backgroundColor: theme.colors.card }]}>
             <View style={styles.appInfoItem}>
-              <Text style={[styles.appInfoLabel, { color: theme.colors.muted }]}>Version</Text>
-              <Text style={[styles.appInfoValue, { color: theme.colors.text }]}>1.0.0</Text>
+              <AppText style={[styles.appInfoLabel, { color: theme.colors.muted }]}>Version</AppText>
+              <AppText style={[styles.appInfoValue, { color: theme.colors.text }]}>1.0.0</AppText>
             </View>
             <View style={styles.appInfoItem}>
-              <Text style={[styles.appInfoLabel, { color: theme.colors.muted }]}>Build</Text>
-              <Text style={[styles.appInfoValue, { color: theme.colors.text }]}>2024.1.1</Text>
+              <AppText style={[styles.appInfoLabel, { color: theme.colors.muted }]}>Build</AppText>
+              <AppText style={[styles.appInfoValue, { color: theme.colors.text }]}>2024.1.1</AppText>
             </View>
             <View style={styles.appInfoItem}>
-              <Text style={[styles.appInfoLabel, { color: theme.colors.muted }]}>Network</Text>
-              <Text style={[styles.appInfoValue, { color: theme.colors.text }]}>Solana Devnet</Text>
+              <AppText style={[styles.appInfoLabel, { color: theme.colors.muted }]}>Network</AppText>
+              <AppText style={[styles.appInfoValue, { color: theme.colors.text }]}>Solana Devnet</AppText>
             </View>
           </View>
         </View>
@@ -348,13 +352,12 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: 32,
     fontFamily: 'SpaceGrotesk-Bold',
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: 'SpaceGrotesk-Regular',
   },
   section: {
@@ -363,7 +366,6 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 16,
-    fontWeight: '600',
     marginBottom: 12,
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
@@ -395,7 +397,6 @@ const styles = StyleSheet.create({
   },
   walletTitle: {
     fontSize: 16,
-    fontWeight: '600',
     marginBottom: 2,
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
@@ -406,7 +407,6 @@ const styles = StyleSheet.create({
   },
   walletBalance: {
     fontSize: 14,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   walletStats: {
@@ -427,7 +427,6 @@ const styles = StyleSheet.create({
   },
   walletStatValue: {
     fontSize: 12,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   noWallet: {
@@ -442,7 +441,6 @@ const styles = StyleSheet.create({
   },
   noWalletTitle: {
     fontSize: 16,
-    fontWeight: '600',
     marginTop: 12,
     marginBottom: 4,
     fontFamily: 'SpaceGrotesk-SemiBold',
@@ -483,7 +481,6 @@ const styles = StyleSheet.create({
   },
   settingTitle: {
     fontSize: 16,
-    fontWeight: '600',
     marginBottom: 2,
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
@@ -515,7 +512,6 @@ const styles = StyleSheet.create({
   },
   appInfoValue: {
     fontSize: 14,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
 }); 

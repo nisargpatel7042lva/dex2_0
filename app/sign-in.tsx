@@ -6,14 +6,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 const ONBOARDING_COMPLETED_KEY = 'onboarding_completed';
@@ -315,7 +315,6 @@ const styles = StyleSheet.create({
   },
   appTitle: {
     fontSize: 32,
-    fontWeight: 'bold',
     color: '#ffffff',
     marginBottom: 8,
     fontFamily: 'SpaceGrotesk-Bold',
@@ -368,7 +367,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     fontSize: 18,
-    fontWeight: '600',
     color: '#000000',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },

@@ -34,18 +34,12 @@ export default function RootLayout() {
     <View style={styles.container} onLayout={onLayoutRootView}>
       <AppProviders>
         <AppNavigationGuard>
-          <Stack 
-            screenOptions={{ 
-              headerShown: false,
-              animation: 'fade',
-              animationDuration: 200,
-            }}
-          >
-            <Stack.Screen name="sign-in" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="send" />
-            <Stack.Screen name="receive" />
-            <Stack.Screen name="swap" />
+          <Stack>
+            <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="send" options={{ headerShown: false }} />
+            <Stack.Screen name="receive" options={{ headerShown: false }} />
+            <Stack.Screen name="swap" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
         </AppNavigationGuard>

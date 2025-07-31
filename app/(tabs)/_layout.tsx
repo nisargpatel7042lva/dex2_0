@@ -66,31 +66,33 @@ export default function TabLayout() {
         </Tabs>
       </View>
 
-      {/* Custom Bottom Tab Bar */}
-      <View style={[styles.tabBar, { backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
-        {tabs.map((tab) => (
-          <Pressable
-            key={tab.key}
-            style={[styles.tabItem, activeTab === tab.key && styles.activeTabItem]}
-            onPress={() => handleTabPress(tab.key)}
-          >
-            <Ionicons
-              name={activeTab === tab.key ? (tab.iconSelected as any) : (tab.icon as any)}
-              size={24}
-              color={activeTab === tab.key ? theme.colors.primary : theme.colors.secondary}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color: activeTab === tab.key ? theme.colors.primary : theme.colors.secondary,
-                },
-              ]}
+      {/* Simple Floating Bottom Tab Bar */}
+      <View style={styles.tabBarContainer}>
+        <View style={[styles.tabBar, { backgroundColor: theme.colors.background }]}>
+          {tabs.map((tab) => (
+            <Pressable
+              key={tab.key}
+              style={styles.tabItem}
+              onPress={() => handleTabPress(tab.key)}
             >
-              {tab.title}
-            </Text>
-          </Pressable>
-        ))}
+              <Ionicons
+                name={activeTab === tab.key ? (tab.iconSelected as any) : (tab.icon as any)}
+                size={24}
+                color={activeTab === tab.key ? theme.colors.primary : theme.colors.secondary}
+              />
+              <Text
+                style={[
+                  styles.tabLabel,
+                  {
+                    color: activeTab === tab.key ? theme.colors.primary : theme.colors.secondary,
+                  },
+                ]}
+              >
+                {tab.title}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -103,23 +105,36 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
+  tabBarContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+  },
   tabBar: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    paddingBottom: 20,
-    paddingTop: 10,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 8,
   },
-  activeTabItem: {
-    // Active tab styling
-  },
   tabLabel: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk-Medium',
     marginTop: 4,
-    fontWeight: '500',
   },
 });
