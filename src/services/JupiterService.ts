@@ -62,35 +62,57 @@ export class JupiterService {
     slippageBps: number = 50
   ): Promise<JupiterQuote> {
     try {
+      console.log('Getting Jupiter quote:', { inputMint, outputMint, amount, slippageBps });
+      
       const response = await fetch(`${this.baseUrl}/quote`, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          inputMint,
-          outputMint,
-          amount,
-          slippageBps,
-          onlyDirectRoutes: false,
-          asLegacyTransaction: false,
-        }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Jupiter API error: ${response.status}`);
+      // Build query parameters
+      const params = new URLSearchParams({
+        inputMint,
+        outputMint,
+        amount,
+        slippageBps: slippageBps.toString(),
+        onlyDirectRoutes: 'false',
+        asLegacyTransaction: 'false',
+      });
+
+      const url = `${this.baseUrl}/quote?${params.toString()}`;
+      console.log('Jupiter API URL:', url);
+
+      const quoteResponse = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!quoteResponse.ok) {
+        const errorText = await quoteResponse.text();
+        console.error('Jupiter API error response:', errorText);
+        throw new Error(`Jupiter API error: ${quoteResponse.status} - ${errorText}`);
       }
 
-      const data = await response.json();
+      const data = await quoteResponse.json();
+      console.log('Jupiter quote response:', data);
+
       return {
         inputMint: data.inputMint,
         outputMint: data.outputMint,
-        amountIn: data.inAmount,
-        amountOut: data.outAmount,
-        priceImpact: data.priceImpactPct,
-        fee: data.otherAmountThreshold,
-        routes: data.routes,
+        inAmount: data.inAmount,
+        outAmount: data.outAmount,
+        otherAmountThreshold: data.otherAmountThreshold,
         swapMode: data.swapMode,
+        slippageBps: data.slippageBps,
+        platformFee: data.platformFee,
+        priceImpactPct: data.priceImpactPct,
+        routePlan: data.routePlan,
+        contextSlot: data.contextSlot,
+        timeTaken: data.timeTaken,
       };
     } catch (error) {
       console.error('Error getting Jupiter quote:', error);
@@ -99,33 +121,37 @@ export class JupiterService {
   }
 
   /**
-   * Get swap transaction
+   * Get swap transaction from Jupiter
    */
   async getSwapTransaction(
     quoteResponse: JupiterQuote,
     userPublicKey: string,
     wrapUnwrapSOL: boolean = true
   ): Promise<string> {
-    const swapRequest: JupiterSwapRequest = {
-      quoteResponse,
-      userPublicKey,
-      wrapUnwrapSOL,
-    };
-
     try {
+      console.log('Getting swap transaction for user:', userPublicKey);
+      
       const response = await fetch(`${this.baseUrl}/swap`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(swapRequest),
+        body: JSON.stringify({
+          quoteResponse,
+          userPublicKey,
+          wrapUnwrapSOL,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(`Jupiter swap API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Jupiter swap API error response:', errorText);
+        throw new Error(`Jupiter swap API error: ${response.status} - ${errorText}`);
       }
 
       const data: JupiterSwapResponse = await response.json();
+      console.log('Jupiter swap transaction response:', data);
+      
       return data.swapTransaction;
     } catch (error) {
       console.error('Error getting swap transaction:', error);
@@ -209,6 +235,29 @@ export class JupiterService {
     } catch (error) {
       console.error('Error getting token prices:', error);
       return {};
+    }
+  }
+
+  /**
+   * Test Jupiter API connectivity
+   */
+  async testAPI(): Promise<boolean> {
+    try {
+      console.log('Testing Jupiter API connectivity...');
+      
+      // Test with SOL to USDC quote
+      const testQuote = await this.getQuote(
+        'So11111111111111111111111111111111111111112', // SOL
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+        '1000000000', // 1 SOL in lamports
+        50 // 0.5% slippage
+      );
+      
+      console.log('Jupiter API test successful:', testQuote);
+      return true;
+    } catch (error) {
+      console.error('Jupiter API test failed:', error);
+      return false;
     }
   }
 } 

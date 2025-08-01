@@ -161,9 +161,9 @@ export default function ReceiveScreen({ hideHeader = false }: { hideHeader?: boo
             <Ionicons 
               name={copied ? "checkmark" : "copy-outline"} 
               size={20} 
-              color="#FFFFFF" 
+              color={theme.colors.background} 
             />
-            <AppText style={styles.copyButtonText}>
+            <AppText style={[styles.copyButtonText, { color: theme.colors.background }]}>
               {copied ? 'Copied!' : 'Copy Address'}
             </AppText>
           </TouchableOpacity>

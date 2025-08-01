@@ -214,13 +214,13 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
                 style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
                 onPress={pasteAddress}
               >
-                <Ionicons name="clipboard-outline" size={20} color="#000" />
+                <Ionicons name="clipboard-outline" size={20} color={theme.colors.background} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
                 onPress={scanQR}
               >
-                <Ionicons name="qr-code-outline" size={20} color="#000" />
+                <Ionicons name="qr-code-outline" size={20} color={theme.colors.background} />
               </TouchableOpacity>
             </View>
           </View>
@@ -258,7 +258,7 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
               style={[styles.maxButton, { backgroundColor: theme.colors.primary }]}
               onPress={setMaxAmount}
             >
-              <AppText style={styles.maxButtonText}>MAX</AppText>
+              <AppText style={[styles.maxButtonText, { color: theme.colors.background }]}>MAX</AppText>
             </TouchableOpacity>
           </View>
           
@@ -331,7 +331,7 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
           onPress={handleSend}
           disabled={loading || !isValidAddress || !amount}
         >
-          <AppText style={styles.sendButtonText}>
+          <AppText style={[styles.sendButtonText, { color: theme.colors.background }]}>
             {loading ? 'Sending...' : 'Send Transaction'}
           </AppText>
         </TouchableOpacity>
@@ -451,7 +451,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   maxButtonText: {
-    color: '#000',
     fontSize: 14,
     fontFamily: 'SpaceGrotesk-Bold',
   },
@@ -519,7 +518,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sendButtonText: {
-    color: '#000',
     fontSize: 18,
     fontFamily: 'SpaceGrotesk-Bold',
   },

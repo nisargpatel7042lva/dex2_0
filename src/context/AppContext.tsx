@@ -257,14 +257,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   // Transfer Hook functions
   const createTransferHookToken = async (config: TransferHookTokenConfig): Promise<TransferHookTokenResult> => {
     if (!token2022Service || !walletInfo) {
-      throw new Error('Transfer Hook service not initialized or wallet not connected');
+      throw new Error('Token2022 service not initialized or wallet not connected');
     }
 
     try {
       const { Keypair } = await import('@solana/web3.js');
       const payerKeypair = Keypair.generate();
       
-      // Create mint with Transfer Hook
+      // Create mint with Transfer Hook using the service
       const mint = await token2022Service.initializeMintWithTransferHook(
         payerKeypair,
         config.decimals,
