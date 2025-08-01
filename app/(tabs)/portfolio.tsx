@@ -1,13 +1,13 @@
 import { AppText } from '@/components/app-text';
 import { useAppTheme } from '@/components/app-theme';
 import { AppView } from '@/components/app-view';
+import { TokenIcon } from '@/components/TokenIcon';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -49,13 +49,13 @@ const PortfolioCard = ({ token }: { token: TokenBalance }) => {
   return (
     <TouchableOpacity style={[styles.portfolioCard, { backgroundColor: theme.colors.card }]}>
       <View style={styles.tokenHeader}>
-    <View style={styles.tokenInfo}>
-          <View style={[styles.tokenIcon, { backgroundColor: theme.colors.primary }]}>
-        <AppText style={styles.tokenIconText}>
-          {token.symbol.charAt(0)}
-        </AppText>
-      </View>
-      <View style={styles.tokenDetails}>
+        <View style={styles.tokenInfo}>
+          <TokenIcon 
+            address={token.mint.toString()} 
+            symbol={token.symbol} 
+            size={40}
+          />
+          <View style={styles.tokenDetails}>
             <AppText style={[styles.tokenSymbol, { color: theme.colors.text }]}>{token.symbol}</AppText>
             <AppText style={[styles.tokenName, { color: theme.colors.muted }]}>{token.name}</AppText>
           </View>
@@ -316,12 +316,17 @@ const QuickActions = ({ onSend, onReceive, onSwap }: {
 
 export default function PortfolioScreen() {
   const { theme } = useAppTheme();
-  const { walletInfo, requestAirdrop } = useApp();
-  const [refreshing, setRefreshing] = useState(false);
-  const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
-  const [totalValue, setTotalValue] = useState(0);
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const { 
+    walletInfo, 
+    requestAirdrop, 
+    walletService 
+  } = useApp();
+  
   const [currentPage, setCurrentPage] = useState<'portfolio' | 'send' | 'receive' | 'swap'>('portfolio');
+  const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [totalValue, setTotalValue] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Mock recent transactions data
   const loadRecentTransactions = () => {
@@ -375,46 +380,94 @@ export default function PortfolioScreen() {
   };
 
   const loadTokenBalances = async () => {
-    if (!walletInfo) return;
+    if (!walletInfo || !walletService) return;
 
     try {
-      // Mock token balances data
-      const mockBalances: TokenBalance[] = [
-        {
-          mint: { toString: () => 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
-          symbol: 'USDC',
-          name: 'USD Coin',
-          balance: 1250.50,
-          value: 1250.50,
-          price: 1.00,
-          decimals: 6,
-        },
+      console.log('Loading real token balances for wallet:', walletInfo.publicKey.toString());
+      
+      // Get real SOL balance
+      const solBalance = walletInfo.balance;
+      
+      // Create SOL token balance
+      const solToken: TokenBalance = {
+        mint: { toString: () => 'So11111111111111111111111111111111111111112' },
+        symbol: 'SOL',
+        name: 'Solana',
+        balance: solBalance,
+        value: solBalance * 400, // Mock SOL price for demo
+        price: 400.00,
+        decimals: 9,
+      };
+
+      // Get real token accounts from the wallet using WalletService
+      let realTokenBalances: TokenBalance[] = [solToken];
+      
+      try {
+        const tokenAccounts = await walletService.getTokenBalances(walletInfo.publicKey);
+        console.log('Real token accounts found:', tokenAccounts);
+
+        // Process each token account
+        for (const account of tokenAccounts) {
+          const accountInfo = account.account.data.parsed.info;
+          const mint = accountInfo.mint;
+          const balance = accountInfo.tokenAmount.uiAmount;
+          const decimals = accountInfo.tokenAmount.decimals;
+
+          if (balance > 0) {
+            // Try to get token metadata
+            let symbol = 'Unknown';
+            let name = 'Unknown Token';
+            
+            try {
+              // You could fetch token metadata here
+              // For now, we'll use the mint address as identifier
+              symbol = mint.slice(0, 4).toUpperCase();
+              name = `Token ${mint.slice(0, 8)}`;
+            } catch (error) {
+              console.log('Could not fetch metadata for token:', mint);
+            }
+
+            const tokenBalance: TokenBalance = {
+              mint: { toString: () => mint },
+              symbol,
+              name,
+              balance,
+              value: balance * 1, // Mock value
+              price: 1.00, // Mock price
+              decimals,
+            };
+
+            realTokenBalances.push(tokenBalance);
+          }
+        }
+      } catch (error) {
+        console.log('Error fetching real token accounts, using SOL only:', error);
+        // Fallback to just SOL balance
+        realTokenBalances = [solToken];
+      }
+
+      console.log('Final token balances:', realTokenBalances);
+      setTokenBalances(realTokenBalances);
+      
+      // Calculate total value
+      const total = realTokenBalances.reduce((sum, token) => sum + (token.value || 0), 0);
+      setTotalValue(total);
+    } catch (error) {
+      console.error('Error loading token balances:', error);
+      // Fallback to just SOL balance
+      const fallbackBalances: TokenBalance[] = [
         {
           mint: { toString: () => 'So11111111111111111111111111111111111111112' },
           symbol: 'SOL',
           name: 'Solana',
-          balance: 15.75,
-          value: 6300.00,
+          balance: walletInfo?.balance || 0,
+          value: (walletInfo?.balance || 0) * 400,
           price: 400.00,
           decimals: 9,
         },
-        {
-          mint: { toString: () => 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' },
-          symbol: 'USDT',
-          name: 'Tether USD',
-          balance: 500.00,
-          value: 500.00,
-          price: 1.00,
-          decimals: 6,
-        },
       ];
-      setTokenBalances(mockBalances);
-      
-      // Calculate total value
-      const total = mockBalances.reduce((sum, token) => sum + (token.value || 0), 0);
-      setTotalValue(total);
-    } catch (error) {
-      console.error('Error loading token balances:', error);
+      setTokenBalances(fallbackBalances);
+      setTotalValue((walletInfo?.balance || 0) * 400);
     }
   };
 
@@ -514,20 +567,32 @@ export default function PortfolioScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.text}
-          />
-        }
+        onScrollBeginDrag={() => {
+          // Simple refresh trigger on scroll
+          if (refreshing) return;
+          onRefresh();
+        }}
       >
         {/* Header */}
         <View style={[styles.header, { backgroundColor: theme.colors.background }]}>
-          <AppText style={[styles.title, { color: theme.colors.text }]}>My Portfolio</AppText>
-          <AppText style={[styles.subtitle, { color: theme.colors.muted }]}>
-            Manage your tokens and transactions
-          </AppText>
+          <View>
+            <AppText style={[styles.title, { color: theme.colors.text }]}>My Portfolio</AppText>
+            <AppText style={[styles.subtitle, { color: theme.colors.muted }]}>
+              Manage your tokens and transactions
+            </AppText>
+          </View>
+          <TouchableOpacity 
+            style={[styles.refreshButton, { backgroundColor: theme.colors.card }]}
+            onPress={onRefresh}
+            disabled={refreshing}
+          >
+            <Ionicons 
+              name={refreshing ? "sync" : "refresh"} 
+              size={20} 
+              color={theme.colors.text}
+              style={refreshing ? { transform: [{ rotate: '360deg' }] } : undefined}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Portfolio Overview */}
@@ -608,8 +673,10 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingVertical: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTop: {
     flexDirection: 'row',
@@ -991,5 +1058,13 @@ const styles = StyleSheet.create({
   pageContent: {
     flex: 1,
     paddingBottom: 100, // Add bottom padding to clear the navbar
+  },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
   },
 }); 

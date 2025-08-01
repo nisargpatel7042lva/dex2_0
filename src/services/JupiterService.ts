@@ -1,4 +1,3 @@
-import { Transaction } from '@solana/web3.js';
 
 export interface JupiterQuote {
   inputMint: string;
@@ -13,24 +12,9 @@ export interface JupiterQuote {
     feeAccounts: Record<string, string>;
   };
   priceImpactPct: number;
-  routePlan: RoutePlan[];
+  routePlan: any[];
   contextSlot: number;
   timeTaken: number;
-}
-
-export interface RoutePlan {
-  swapInfo: SwapInfo;
-  percent: number;
-}
-
-export interface SwapInfo {
-  ammLabel: string;
-  inputMint: string;
-  outputMint: string;
-  inAmount: string;
-  outAmount: string;
-  feeAmount: string;
-  feeMint: string;
 }
 
 export interface JupiterSwapRequest {
@@ -45,75 +29,58 @@ export interface JupiterSwapResponse {
 
 export class JupiterService {
   private baseUrl: string;
-  private testnetBaseUrl: string;
 
   constructor() {
-    this.baseUrl = 'https://quote-api.jup.ag/v6';
-    this.testnetBaseUrl = 'https://quote-api.jup.ag/v6'; // Jupiter uses same API for testnet
+    // Use the new lite-api.jup.ag endpoint for free usage
+    this.baseUrl = 'https://lite-api.jup.ag';
   }
 
   /**
-   * Get swap quote from Jupiter
+   * Get swap quote using Jupiter v1 API
    */
   async getQuote(
     inputMint: string,
     outputMint: string,
     amount: string,
-    slippageBps: number = 50
+    slippageBps: number = 50,
+    feeBps?: number,
+    onlyDirectRoutes?: boolean,
+    asLegacyTransaction?: boolean
   ): Promise<JupiterQuote> {
     try {
-      console.log('Getting Jupiter quote:', { inputMint, outputMint, amount, slippageBps });
-      
-      const response = await fetch(`${this.baseUrl}/quote`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      console.log('Getting Jupiter quote:', {
+        inputMint,
+        outputMint,
+        amount,
+        slippageBps
       });
 
-      // Build query parameters
       const params = new URLSearchParams({
         inputMint,
         outputMint,
         amount,
         slippageBps: slippageBps.toString(),
-        onlyDirectRoutes: 'false',
-        asLegacyTransaction: 'false',
+        ...(feeBps && { feeBps: feeBps.toString() }),
+        ...(onlyDirectRoutes && { onlyDirectRoutes: onlyDirectRoutes.toString() }),
+        ...(asLegacyTransaction && { asLegacyTransaction: asLegacyTransaction.toString() })
       });
 
-      const url = `${this.baseUrl}/quote?${params.toString()}`;
-      console.log('Jupiter API URL:', url);
-
-      const quoteResponse = await fetch(url, {
+      const response = await fetch(`${this.baseUrl}/swap/v1/quote?${params}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       });
 
-      if (!quoteResponse.ok) {
-        const errorText = await quoteResponse.text();
-        console.error('Jupiter API error response:', errorText);
-        throw new Error(`Jupiter API error: ${quoteResponse.status} - ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Jupiter API error:', response.status, errorText);
+        throw new Error(`Jupiter API error: ${response.status} - ${errorText}`);
       }
 
-      const data = await quoteResponse.json();
-      console.log('Jupiter quote response:', data);
-
-      return {
-        inputMint: data.inputMint,
-        outputMint: data.outputMint,
-        inAmount: data.inAmount,
-        outAmount: data.outAmount,
-        otherAmountThreshold: data.otherAmountThreshold,
-        swapMode: data.swapMode,
-        slippageBps: data.slippageBps,
-        platformFee: data.platformFee,
-        priceImpactPct: data.priceImpactPct,
-        routePlan: data.routePlan,
-        contextSlot: data.contextSlot,
-        timeTaken: data.timeTaken,
-      };
+      const data = await response.json();
+      console.log('Jupiter quote received:', data);
+      return data;
     } catch (error) {
       console.error('Error getting Jupiter quote:', error);
       throw error;
@@ -121,7 +88,7 @@ export class JupiterService {
   }
 
   /**
-   * Get swap transaction from Jupiter
+   * Get swap transaction using Jupiter v1 API
    */
   async getSwapTransaction(
     quoteResponse: JupiterQuote,
@@ -129,72 +96,88 @@ export class JupiterService {
     wrapUnwrapSOL: boolean = true
   ): Promise<string> {
     try {
-      console.log('Getting swap transaction for user:', userPublicKey);
-      
-      const response = await fetch(`${this.baseUrl}/swap`, {
+      console.log('Getting Jupiter swap transaction for:', userPublicKey);
+
+      const requestBody: JupiterSwapRequest = {
+        quoteResponse,
+        userPublicKey,
+        wrapUnwrapSOL,
+      };
+
+      const response = await fetch(`${this.baseUrl}/swap/v1/swap`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          quoteResponse,
-          userPublicKey,
-          wrapUnwrapSOL,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Jupiter swap API error response:', errorText);
+        console.error('Jupiter swap API error:', response.status, errorText);
         throw new Error(`Jupiter swap API error: ${response.status} - ${errorText}`);
       }
 
       const data: JupiterSwapResponse = await response.json();
-      console.log('Jupiter swap transaction response:', data);
-      
+      console.log('Jupiter swap transaction received');
       return data.swapTransaction;
     } catch (error) {
-      console.error('Error getting swap transaction:', error);
+      console.error('Error getting Jupiter swap transaction:', error);
       throw error;
     }
   }
 
   /**
-   * Execute a swap transaction
+   * Execute swap using Jupiter v1 API
    */
   async executeSwap(
-    swapTransaction: string,
-    wallet: any
+    quoteResponse: JupiterQuote,
+    userPublicKey: string,
+    wrapUnwrapSOL: boolean = true
   ): Promise<string> {
     try {
-      // Deserialize the transaction
-      const transaction = Transaction.from(Buffer.from(swapTransaction, 'base64'));
-      
-      // Sign and send the transaction
-      const signature = await wallet.sendTransaction(transaction);
-      
-      // Wait for confirmation
-      await this.connection.confirmTransaction(signature, 'confirmed');
-      
-      return signature;
+      console.log('Executing Jupiter swap for:', userPublicKey);
+
+      // First get the swap transaction
+      const swapTransaction = await this.getSwapTransaction(
+        quoteResponse,
+        userPublicKey,
+        wrapUnwrapSOL
+      );
+
+      // The swap transaction is returned as a base64 encoded string
+      // This would need to be signed and sent by the wallet
+      console.log('Swap transaction ready for signing');
+      return swapTransaction;
     } catch (error) {
-      console.error('Error executing swap:', error);
+      console.error('Error executing Jupiter swap:', error);
       throw error;
     }
   }
 
   /**
-   * Get supported tokens
+   * Get supported tokens using Jupiter Token API v1
    */
   async getSupportedTokens(): Promise<any[]> {
     try {
-      const response = await fetch('https://token.jup.ag/all');
+      console.log('Getting supported tokens from Jupiter');
+
+      const response = await fetch(`${this.baseUrl}/tokens/v1/mints/tradable`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
       if (!response.ok) {
-        throw new Error(`Jupiter tokens API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Jupiter tokens API error:', response.status, errorText);
+        throw new Error(`Jupiter tokens API error: ${response.status} - ${errorText}`);
       }
-      
+
       const data = await response.json();
-      return data.tokens;
+      console.log('Supported tokens received:', data.length, 'tokens');
+      return data;
     } catch (error) {
       console.error('Error getting supported tokens:', error);
       throw error;
@@ -202,17 +185,33 @@ export class JupiterService {
   }
 
   /**
-   * Get token price
+   * Get token price using Jupiter Price API v2
    */
   async getTokenPrice(mint: string): Promise<number> {
     try {
-      const response = await fetch(`https://price.jup.ag/v4/price?ids=${mint}`);
+      console.log('Getting token price for:', mint);
+
+      const response = await fetch(`${this.baseUrl}/price/v2/price?ids=${mint}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
       if (!response.ok) {
-        throw new Error(`Jupiter price API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Jupiter price API error:', response.status, errorText);
+        throw new Error(`Jupiter price API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Token price received:', data);
+      
+      if (data.data && data.data[mint]) {
+        return data.data[mint].price;
       }
       
-      const data = await response.json();
-      return data.data[mint]?.price || 0;
+      return 0;
     } catch (error) {
       console.error('Error getting token price:', error);
       return 0;
@@ -220,18 +219,37 @@ export class JupiterService {
   }
 
   /**
-   * Get multiple token prices
+   * Get multiple token prices using Jupiter Price API v2
    */
   async getTokenPrices(mints: string[]): Promise<Record<string, number>> {
     try {
+      console.log('Getting token prices for:', mints.length, 'tokens');
+
       const ids = mints.join(',');
-      const response = await fetch(`https://price.jup.ag/v4/price?ids=${ids}`);
+      const response = await fetch(`${this.baseUrl}/price/v2/price?ids=${ids}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
       if (!response.ok) {
-        throw new Error(`Jupiter price API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Jupiter price API error:', response.status, errorText);
+        throw new Error(`Jupiter price API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Token prices received:', data);
+      
+      const prices: Record<string, number> = {};
+      if (data.data) {
+        for (const mint of mints) {
+          prices[mint] = data.data[mint]?.price || 0;
+        }
       }
       
-      const data = await response.json();
-      return data.data || {};
+      return prices;
     } catch (error) {
       console.error('Error getting token prices:', error);
       return {};
@@ -239,25 +257,60 @@ export class JupiterService {
   }
 
   /**
-   * Test Jupiter API connectivity
+   * Get token metadata using Jupiter Token API v1
    */
-  async testAPI(): Promise<boolean> {
+  async getTokenMetadata(mint: string): Promise<any> {
     try {
-      console.log('Testing Jupiter API connectivity...');
-      
-      // Test with SOL to USDC quote
-      const testQuote = await this.getQuote(
-        'So11111111111111111111111111111111111111112', // SOL
-        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
-        '1000000000', // 1 SOL in lamports
-        50 // 0.5% slippage
-      );
-      
-      console.log('Jupiter API test successful:', testQuote);
-      return true;
+      console.log('Getting token metadata for:', mint);
+
+      const response = await fetch(`${this.baseUrl}/tokens/v1/token/${mint}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Jupiter token metadata API error:', response.status, errorText);
+        throw new Error(`Jupiter token metadata API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Token metadata received:', data);
+      return data;
     } catch (error) {
-      console.error('Jupiter API test failed:', error);
-      return false;
+      console.error('Error getting token metadata:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get tokens by tag using Jupiter Token API v1
+   */
+  async getTokensByTag(tag: string): Promise<any[]> {
+    try {
+      console.log('Getting tokens by tag:', tag);
+
+      const response = await fetch(`${this.baseUrl}/tokens/v1/tagged/${tag}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Jupiter tagged tokens API error:', response.status, errorText);
+        throw new Error(`Jupiter tagged tokens API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Tagged tokens received:', data.length, 'tokens');
+      return data;
+    } catch (error) {
+      console.error('Error getting tagged tokens:', error);
+      return [];
     }
   }
 } 

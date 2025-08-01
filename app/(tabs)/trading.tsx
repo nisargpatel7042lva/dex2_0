@@ -4,10 +4,10 @@ import { useApp } from '@/src/context/AppContext';
 import { useNotifications } from '@/src/context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
 import { PublicKey } from '@solana/web3.js';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
     Alert,
-    RefreshControl,
+    FlatList,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -180,13 +180,6 @@ export default function TradingScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
-          />
-        }
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -346,67 +339,72 @@ export default function TradingScreen() {
           ) : (
             <>
               {filteredPools.length > 0 ? (
-                filteredPools.map((pool, index) => (
-                  <TouchableOpacity
-                    key={`${pool.pool}-${index}`}
-                    style={[styles.poolCard, { backgroundColor: theme.colors.card }]}
-                    onPress={() => handlePoolSelect(pool)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.poolHeader}>
-                      <View style={styles.poolTokens}>
-                        <AppText style={[styles.poolPair, { color: theme.colors.text }]}>
-                          {pool.tokenASymbol}/{pool.tokenBSymbol}
-                        </AppText>
-                        <AppText style={[styles.poolFee, { color: theme.colors.muted }]}>
-                          {pool.feeRate}% fee
-                        </AppText>
+                <FlatList
+                  data={filteredPools}
+                  renderItem={({ item, index }) => (
+                    <TouchableOpacity
+                      key={`${item.pool}-${index}`}
+                      style={[styles.poolCard, { backgroundColor: theme.colors.card }]}
+                      onPress={() => handlePoolSelect(item)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.poolHeader}>
+                        <View style={styles.poolTokens}>
+                          <AppText style={[styles.poolPair, { color: theme.colors.text }]}>
+                            {item.tokenASymbol}/{item.tokenBSymbol}
+                          </AppText>
+                          <AppText style={[styles.poolFee, { color: theme.colors.muted }]}>
+                            {item.feeRate}% fee
+                          </AppText>
+                        </View>
+                        <View style={styles.poolStatus}>
+                          <View 
+                            style={[
+                              styles.statusBadge, 
+                              { backgroundColor: item.isActive ? '#10b981' : '#ef4444' }
+                            ]}
+                          >
+                            <AppText style={styles.statusText}>
+                              {item.isActive ? 'Active' : 'Inactive'}
+                            </AppText>
+                          </View>
+                        </View>
                       </View>
-                      <View style={styles.poolStatus}>
-                        <View 
-                          style={[
-                            styles.statusBadge, 
-                            { backgroundColor: pool.isActive ? '#10b981' : '#ef4444' }
-                          ]}
-                        >
-                          <AppText style={styles.statusText}>
-                            {pool.isActive ? 'Active' : 'Inactive'}
+
+                      <View style={styles.poolStats}>
+                        <View style={styles.statItem}>
+                          <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>Price</AppText>
+                          <AppText style={[styles.statValue, { color: theme.colors.text }]}>
+                            ${formatPrice(item.price)}
+                          </AppText>
+                        </View>
+                        <View style={styles.statItem}>
+                          <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>24h Change</AppText>
+                          <AppText style={[
+                            styles.statValue,
+                            { color: item.priceChange24h >= 0 ? '#10b981' : '#ef4444' }
+                          ]}>
+                            {item.priceChange24h >= 0 ? '+' : ''}{item.priceChange24h.toFixed(2)}%
+                          </AppText>
+                        </View>
+                        <View style={styles.statItem}>
+                          <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>Volume</AppText>
+                          <AppText style={[styles.statValue, { color: theme.colors.text }]}>
+                            {formatNumber(item.volume24h)}
+                          </AppText>
+                        </View>
+                        <View style={styles.statItem}>
+                          <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>Liquidity</AppText>
+                          <AppText style={[styles.statValue, { color: theme.colors.text }]}>
+                            {formatNumber(item.liquidity)}
                           </AppText>
                         </View>
                       </View>
-                    </View>
-
-                    <View style={styles.poolStats}>
-                      <View style={styles.statItem}>
-                        <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>Price</AppText>
-                        <AppText style={[styles.statValue, { color: theme.colors.text }]}>
-                          ${formatPrice(pool.price)}
-                        </AppText>
-                      </View>
-                      <View style={styles.statItem}>
-                        <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>24h Change</AppText>
-                        <AppText style={[
-                          styles.statValue,
-                          { color: pool.priceChange24h >= 0 ? '#10b981' : '#ef4444' }
-                        ]}>
-                          {pool.priceChange24h >= 0 ? '+' : ''}{pool.priceChange24h.toFixed(2)}%
-                        </AppText>
-                      </View>
-                      <View style={styles.statItem}>
-                        <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>Volume</AppText>
-                        <AppText style={[styles.statValue, { color: theme.colors.text }]}>
-                          {formatNumber(pool.volume24h)}
-                        </AppText>
-                      </View>
-                      <View style={styles.statItem}>
-                        <AppText style={[styles.statLabel, { color: theme.colors.muted }]}>Liquidity</AppText>
-                        <AppText style={[styles.statValue, { color: theme.colors.text }]}>
-                          {formatNumber(pool.liquidity)}
-                        </AppText>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))
+                    </TouchableOpacity>
+                  )}
+                  keyExtractor={(item) => item.pool}
+                  contentContainerStyle={{ paddingBottom: 20 }}
+                />
               ) : (
                 <View style={[styles.emptyState, { backgroundColor: theme.colors.card }]}>
                   <AppText style={[styles.emptyStateText, { color: theme.colors.muted }]}>

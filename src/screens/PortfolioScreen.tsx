@@ -1,14 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import {
-    FlatList,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { TokenBalance } from '../services/WalletService';
@@ -56,7 +48,7 @@ const PortfolioScreen: React.FC = () => {
   };
 
   const renderTokenItem = ({ item }: { item: TokenBalance }) => (
-    <TouchableOpacity style={styles.tokenItem}>
+    <View style={styles.tokenItem}>
       <View style={styles.tokenInfo}>
         <View style={styles.tokenIcon}>
           <Text style={styles.tokenIconText}>
@@ -77,7 +69,7 @@ const PortfolioScreen: React.FC = () => {
           ${item.value?.toFixed(2) || '0.00'}
         </Text>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   const formatNumber = (num: number): string => {
@@ -97,9 +89,6 @@ const PortfolioScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
       >
         {/* Portfolio Header */}
         <View style={styles.header}>

@@ -1,16 +1,17 @@
 import { AppText } from '@/components/app-text';
 import { useAppTheme } from '@/components/app-theme';
+import { TokenIcon } from '@/components/TokenIcon';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 // Common token mints for testnet
@@ -24,17 +25,62 @@ const COMMON_TOKENS = [
 
 export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolean }) {
   const { theme } = useAppTheme();
-  const { walletInfo, getJupiterQuote, executeJupiterSwap, getTokenPrice } = useApp();
+  const { walletInfo, getJupiterQuote, executeJupiterSwap, getTokenPrice, walletService } = useApp();
   
-  // Swap state
-  const [fromToken, setFromToken] = useState(COMMON_TOKENS[0]); // SOL
-  const [toToken, setToToken] = useState(COMMON_TOKENS[1]); // USDC
+  // Real token data from blockchain
+  const [availableTokens, setAvailableTokens] = useState<any[]>([]);
+  const [fromToken, setFromToken] = useState(COMMON_TOKENS[0]);
+  const [toToken, setToToken] = useState(COMMON_TOKENS[1]);
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
-  const [slippage, setSlippage] = useState('0.5');
-  const [loading, setLoading] = useState(false);
-  const [quoteLoading, setQuoteLoading] = useState(false);
   const [quote, setQuote] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [slippage, setSlippage] = useState('0.5');
+
+  // Load real tokens from user's wallet
+  useEffect(() => {
+    const loadUserTokens = async () => {
+      if (!walletInfo || !walletService) return;
+      
+      try {
+        console.log('Loading user tokens for swap...');
+        const tokenAccounts = await walletService.getTokenBalances(walletInfo.publicKey);
+        
+        // Convert to token format for swap
+        const userTokens = tokenAccounts.map((account: any) => {
+          const accountInfo = account.account.data.parsed.info;
+          return {
+            mint: accountInfo.mint,
+            symbol: accountInfo.mint.slice(0, 4).toUpperCase(),
+            name: `Token ${accountInfo.mint.slice(0, 8)}`,
+            decimals: accountInfo.tokenAmount.decimals,
+            balance: accountInfo.tokenAmount.uiAmount,
+          };
+        });
+
+        // Add SOL to the list
+        const allTokens = [
+          {
+            mint: 'So11111111111111111111111111111111111111112',
+            symbol: 'SOL',
+            name: 'Solana',
+            decimals: 9,
+            balance: walletInfo.balance,
+          },
+          ...userTokens
+        ];
+
+        setAvailableTokens(allTokens);
+        console.log('Available tokens for swap:', allTokens);
+      } catch (error) {
+        console.error('Error loading user tokens:', error);
+        // Fallback to common tokens
+        setAvailableTokens(COMMON_TOKENS);
+      }
+    };
+
+    loadUserTokens();
+  }, [walletInfo, walletService]);
 
   // Get quote when amount or tokens change
   useEffect(() => {
@@ -49,7 +95,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
   const getQuote = async () => {
     if (!fromAmount || parseFloat(fromAmount) <= 0) return;
     
-    setQuoteLoading(true);
+    setLoading(true);
     try {
       // Convert amount to lamports (assuming 9 decimals for most tokens)
       const amountInLamports = Math.floor(parseFloat(fromAmount) * Math.pow(10, 9));
@@ -77,7 +123,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       console.error('Error getting quote:', error);
       
       // Fallback: provide a mock quote for demo purposes
-      if (error instanceof Error && error.message.includes('405')) {
+      if (error instanceof Error && (error.message.includes('405') || error.message.includes('401'))) {
         console.log('Jupiter API not available, using mock quote for demo');
         const mockQuote = {
           inputMint: fromToken.mint,
@@ -96,7 +142,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
         Alert.alert('Quote Error', 'Unable to get swap quote. Please try again.');
       }
     } finally {
-      setQuoteLoading(false);
+      setLoading(false);
     }
   };
 
@@ -199,6 +245,11 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
           
           <View style={styles.tokenRow}>
             <TouchableOpacity style={styles.tokenSelector}>
+              <TokenIcon 
+                address={fromToken.mint} 
+                symbol={fromToken.symbol} 
+                size={24}
+              />
               <AppText style={[styles.tokenSymbol, { color: theme.colors.text }]}>
                 {fromToken.symbol}
               </AppText>
@@ -230,7 +281,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
             style={[styles.swapArrow, { backgroundColor: theme.colors.primary }]}
             onPress={swapTokens}
           >
-            <Ionicons name="swap-vertical" size={20} color="#FFFFFF" />
+            <Ionicons name="swap-vertical" size={20} color={theme.colors.background} />
           </TouchableOpacity>
         </View>
 
@@ -240,6 +291,11 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
           
           <View style={styles.tokenRow}>
             <TouchableOpacity style={styles.tokenSelector}>
+              <TokenIcon 
+                address={toToken.mint} 
+                symbol={toToken.symbol} 
+                size={24}
+              />
               <AppText style={[styles.tokenSymbol, { color: theme.colors.text }]}>
                 {toToken.symbol}
               </AppText>
@@ -311,7 +367,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
               >
                 <AppText style={[
                   styles.slippageText,
-                  { color: slippage === option ? '#FFFFFF' : theme.colors.text }
+                  { color: slippage === option ? theme.colors.background : theme.colors.text }
                 ]}>
                   {option}%
                 </AppText>
@@ -337,18 +393,16 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
           style={[
             styles.swapActionButton,
             { 
-              backgroundColor: loading || quoteLoading || !fromAmount || !quote 
+              backgroundColor: loading || !fromAmount || !quote 
                 ? theme.colors.muted 
                 : theme.colors.primary 
             }
           ]}
           onPress={handleSwap}
-          disabled={loading || quoteLoading || !fromAmount || !quote}
+          disabled={loading || !fromAmount || !quote}
         >
           {loading ? (
             <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>Swapping...</AppText>
-          ) : quoteLoading ? (
-            <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>Getting Quote...</AppText>
           ) : (
             <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>Swap</AppText>
           )}

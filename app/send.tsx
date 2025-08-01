@@ -381,7 +381,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   connectButtonText: {
-    color: '#000',
     fontSize: 16,
     fontFamily: 'SpaceGrotesk-Bold',
   },

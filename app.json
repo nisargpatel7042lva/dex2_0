@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "web3js-expo",
-    "slug": "web3js-expo",
+    "name": "DEX 2.0",
+    "slug": "dex2-0",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "templateexpobasic",
+    "scheme": "dex2-0",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nisargxplores.web3jsexpo"
+      "bundleIdentifier": "com.dex2.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +18,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.nisargxplores.web3jsexpo"
+      "package": "com.dex2.app"
     },
     "web": {
       "bundler": "metro",

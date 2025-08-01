@@ -91,7 +91,7 @@ export default function ReceiveScreen({ hideHeader = false }: { hideHeader?: boo
             style={[styles.connectButton, { backgroundColor: theme.colors.primary }]}
             onPress={() => router.push('/sign-in')}
           >
-            <AppText style={styles.connectButtonText}>Connect Wallet</AppText>
+            <AppText style={[styles.connectButtonText, { color: theme.colors.background }]}>Connect Wallet</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -274,7 +274,6 @@ const styles = StyleSheet.create({
   connectButtonText: {
     fontSize: 16,
     fontFamily: 'SpaceGrotesk-Bold',
-    color: '#FFFFFF',
   },
   qrCard: {
     padding: 20,
@@ -335,7 +334,6 @@ const styles = StyleSheet.create({
   copyButtonText: {
     fontSize: 16,
     fontFamily: 'SpaceGrotesk-Bold',
-    color: '#FFFFFF',
     marginLeft: 8,
   },
   instructionsCard: {

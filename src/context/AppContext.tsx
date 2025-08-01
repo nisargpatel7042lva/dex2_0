@@ -1,3 +1,4 @@
+import { TokenImageService } from '@/src/services/TokenImageService';
 import { TransferHookAMMService } from '@/src/services/TransferHookAMMService';
 import { TransferHookService } from '@/src/services/TransferHookService';
 import { PublicKey } from '@solana/web3.js';
@@ -56,6 +57,7 @@ export interface AppContextType {
   jupiterService: JupiterService | null;
   qrCodeService: QRCodeService | null;
   walletService: WalletService | null;
+  tokenImageService: TokenImageService | null;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   requestAirdrop: (amount: number) => Promise<void>;
@@ -86,6 +88,12 @@ export interface AppContextType {
   addLiquidity: (poolAddress: PublicKey, tokenAAmount: number, tokenBAmount: number, minLpTokens: number) => Promise<string>;
   initializePool: (tokenAMint: PublicKey, tokenBMint: PublicKey, feeRate?: number) => Promise<{ pool: PublicKey; signature: string }>;
   loadPools: () => Promise<void>;
+  getTokenBalances: () => Promise<any[]>;
+  // Token Image functions
+  getTokenImageUrl: (address: string) => Promise<string | null>;
+  getTokenMetadata: (address: string) => Promise<any | null>;
+  getFallbackIcon: (symbol: string) => string;
+  getTokenColor: (symbol: string) => string;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -109,6 +117,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [pools, setPools] = useState<PoolInfo[]>([]);
   const [transferHookService, setTransferHookService] = useState<TransferHookService | null>(null);
   const [transferHookAMMService, setTransferHookAMMService] = useState<TransferHookAMMService | null>(null);
+  const [tokenImageService, setTokenImageService] = useState<TokenImageService | null>(null);
 
   useEffect(() => {
     const initializeServices = async () => {
@@ -144,12 +153,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         const ammSvc = new AMMService(connection, ammProgramId);
         console.log('AMMService created successfully');
 
+        const tokenImageSvc = new TokenImageService();
+        console.log('TokenImageService created successfully');
+
         setWalletService(walletSvc);
         setToken2022Service(token2022Svc);
         setTokenLaunchService(tokenLaunchSvc);
         setJupiterService(jupiterSvc);
         setQrCodeService(qrCodeSvc);
         setAmmService(ammSvc);
+        setTokenImageService(tokenImageSvc);
         setServicesInitialized(true);
         
         console.log('All services initialized successfully');
@@ -350,9 +363,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
     try {
       return await jupiterService.getQuote(inputMint, outputMint, amount, slippageBps);
-    } catch (err) {
-      console.error('Error getting Jupiter quote:', err);
-      throw err;
+    } catch (error) {
+      console.error('Error getting Jupiter quote:', error);
+      throw error;
     }
   };
 
@@ -361,23 +374,33 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     wrapUnwrapSOL: boolean = true
   ): Promise<string> => {
     if (!jupiterService || !walletInfo) {
-      throw new Error('Jupiter service not initialized or wallet not connected');
+      throw new Error('Jupiter service or wallet not initialized');
     }
 
     try {
-      // Get swap transaction
-      const swapTransaction = await jupiterService.getSwapTransaction(
+      // Get the swap transaction from Jupiter
+      const swapTransaction = await jupiterService.executeSwap(
         quote,
         walletInfo.publicKey.toString(),
         wrapUnwrapSOL
       );
 
-      // Execute the swap
-      const signature = await jupiterService.executeSwap(swapTransaction, walletInfo);
-      return signature;
-    } catch (err) {
-      console.error('Error executing Jupiter swap:', err);
-      throw err;
+      // The swap transaction is returned as a base64 encoded string
+      // We need to deserialize it and send it through the wallet
+      if (walletService) {
+        const { Transaction } = await import('@solana/web3.js');
+        const transaction = Transaction.from(Buffer.from(swapTransaction, 'base64'));
+        
+        // Send the transaction through the wallet
+        const signature = await walletService.sendTransaction(transaction);
+        console.log('Jupiter swap executed successfully:', signature);
+        return signature;
+      }
+
+      throw new Error('Wallet service not available');
+    } catch (error) {
+      console.error('Error executing Jupiter swap:', error);
+      throw error;
     }
   };
 
@@ -388,9 +411,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
     try {
       return await jupiterService.getSupportedTokens();
-    } catch (err) {
-      console.error('Error getting supported tokens:', err);
-      throw err;
+    } catch (error) {
+      console.error('Error getting supported tokens:', error);
+      return [];
     }
   };
 
@@ -401,9 +424,22 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
     try {
       return await jupiterService.getTokenPrice(mint);
-    } catch (err) {
-      console.error('Error getting token price:', err);
+    } catch (error) {
+      console.error('Error getting token price:', error);
       return 0;
+    }
+  };
+
+  const getJupiterTokenMetadata = async (mint: string): Promise<any> => {
+    if (!jupiterService) {
+      throw new Error('Jupiter service not initialized');
+    }
+
+    try {
+      return await jupiterService.getTokenMetadata(mint);
+    } catch (error) {
+      console.error('Error getting token metadata:', error);
+      return null;
     }
   };
 
@@ -552,6 +588,58 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
+  const getTokenBalances = async (): Promise<any[]> => {
+    if (!walletService || !walletInfo) {
+      throw new Error('Wallet service not initialized or wallet not connected');
+    }
+
+    try {
+      return await walletService.getTokenBalances(walletInfo.publicKey);
+    } catch (error) {
+      console.error('Error getting token balances:', error);
+      return [];
+    }
+  };
+
+  // Token Image functions
+  const getTokenImageUrl = async (address: string): Promise<string | null> => {
+    if (!tokenImageService) {
+      throw new Error('Token image service not initialized');
+    }
+    try {
+      return await tokenImageService.getTokenImageUrl(address);
+    } catch (err) {
+      console.error('Error getting token image URL:', err);
+      return null;
+    }
+  };
+
+  const getTokenMetadata = async (address: string): Promise<any | null> => {
+    if (!tokenImageService) {
+      throw new Error('Token image service not initialized');
+    }
+    try {
+      return await tokenImageService.getTokenMetadata(address);
+    } catch (err) {
+      console.error('Error getting token metadata:', err);
+      return null;
+    }
+  };
+
+  const getFallbackIcon = (symbol: string): string => {
+    if (!tokenImageService) {
+      return 'ellipse';
+    }
+    return tokenImageService.getFallbackIcon(symbol);
+  };
+
+  const getTokenColor = (symbol: string): string => {
+    if (!tokenImageService) {
+      return '#6366f1';
+    }
+    return tokenImageService.getTokenColor(symbol);
+  };
+
   const contextValue: AppContextType = {
     walletInfo,
     token2022Mints,
@@ -563,6 +651,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     jupiterService,
     qrCodeService,
     walletService,
+    tokenImageService,
     connectWallet,
     disconnectWallet,
     requestAirdrop,
@@ -588,6 +677,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     addLiquidity,
     initializePool,
     loadPools,
+    getTokenBalances,
+    getTokenImageUrl,
+    getTokenMetadata,
+    getFallbackIcon,
+    getTokenColor,
   };
   return (
     <AppContext.Provider value={contextValue}>
