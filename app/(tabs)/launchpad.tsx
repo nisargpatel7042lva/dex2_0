@@ -20,15 +20,21 @@ export default function LaunchpadScreen() {
   const { theme } = useAppTheme();
   const { walletInfo } = useApp();
   
-  // Token Creation State
+  // Token configuration state
   const [tokenName, setTokenName] = useState('');
   const [tokenSymbol, setTokenSymbol] = useState('');
   const [tokenDescription, setTokenDescription] = useState('');
-  const [tokenDecimals, setTokenDecimals] = useState('6');
-  const [tokenSupply, setTokenSupply] = useState('1000000');
-  const [tokenWebsite, setTokenWebsite] = useState('');
-  const [tokenTwitter, setTokenTwitter] = useState('');
-  const [tokenTelegram, setTokenTelegram] = useState('');
+  const [decimals, setDecimals] = useState('');
+  const [totalSupply, setTotalSupply] = useState('');
+  const [website, setWebsite] = useState('');
+  const [twitter, setTwitter] = useState('');
+  const [telegram, setTelegram] = useState('');
+  
+  // Transfer Hook configuration
+  const [enableTransferHook, setEnableTransferHook] = useState(false);
+  const [transferHookProgramId, setTransferHookProgramId] = useState('');
+  const [transferHookAuthority, setTransferHookAuthority] = useState('');
+  const [transferHookData, setTransferHookData] = useState('');
 
   // UI State
   const [loading, setLoading] = useState(false);
@@ -53,61 +59,65 @@ export default function LaunchpadScreen() {
     return new PublicKey(bytes).toString();
   };
 
-  const createToken = async () => {
-    if (!walletInfo) {
-      setError('Wallet not connected');
-      setShowErrorModal(true);
-      return;
-    }
-
-    // Validation
-    if (!tokenName || !tokenSymbol || !tokenDescription) {
-      setError('Please fill in all required fields');
-      setShowErrorModal(true);
-      return;
-    }
-
-    if (parseInt(tokenSupply) <= 0) {
-      setError('Total supply must be greater than 0');
-      setShowErrorModal(true);
+  const handleLaunchToken = async () => {
+    if (!tokenName || !tokenSymbol || !tokenDescription || !decimals || !totalSupply) {
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
     setLoading(true);
     setError(null);
-    setSuccess(null);
 
     try {
-      // Simulate token creation (in real implementation, this would call the blockchain)
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
-      
-      // Generate proper Solana addresses
-      const mockMint = generateSolanaAddress();
-      const mockSignature = generateSolanaAddress(); // Transaction signature
-      
-      // Store token details before resetting form
-      const tokenDetails = {
+      // Create Transfer Hook config if enabled
+      let transferHookConfig = undefined;
+      if (enableTransferHook && transferHookProgramId && transferHookAuthority) {
+        transferHookConfig = {
+          programId: new PublicKey(transferHookProgramId),
+          authority: new PublicKey(transferHookAuthority),
+          data: transferHookData ? Buffer.from(transferHookData, 'hex') : undefined,
+        };
+      }
+
+      const result = await createTokenLaunch({
         name: tokenName,
         symbol: tokenSymbol,
-        mint: mockMint,
-        signature: mockSignature,
-      };
-      
-      setCreatedToken(tokenDetails);
-      setSuccess('Token created successfully!');
+        description: tokenDescription,
+        decimals: parseInt(decimals),
+        totalSupply: parseInt(totalSupply),
+        website: website || undefined,
+        twitter: twitter || undefined,
+        telegram: telegram || undefined,
+        transferHookConfig,
+      });
+
+      setSuccess(
+        `Token launched successfully!\n\n` +
+        `Name: ${tokenName}\n` +
+        `Symbol: ${tokenSymbol}\n` +
+        `Mint Address: ${result.mint.toString().slice(0, 8)}...${result.mint.toString().slice(-8)}\n\n` +
+        `Transaction: ${result.signature.slice(0, 8)}...${result.signature.slice(-8)}\n\n` +
+        `Transfer Hook: ${enableTransferHook ? 'Enabled' : 'Disabled'}\n\n` +
+        `View on Solana Explorer: https://explorer.solana.com/tx/${result.signature}?cluster=testnet`
+      );
       setShowSuccessModal(true);
-      
-      // Reset form after storing details
+
+      // Reset form
       setTokenName('');
       setTokenSymbol('');
       setTokenDescription('');
-      setTokenDecimals('6');
-      setTokenSupply('1000000');
-      setTokenWebsite('');
-      setTokenTwitter('');
-      setTokenTelegram('');
+      setDecimals('');
+      setTotalSupply('');
+      setWebsite('');
+      setTwitter('');
+      setTelegram('');
+      setEnableTransferHook(false);
+      setTransferHookProgramId('');
+      setTransferHookAuthority('');
+      setTransferHookData('');
     } catch (err) {
-      setError(`${(err as Error).message}`);
+      console.error('Error launching token:', err);
+      setError(`Failed to launch token: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setShowErrorModal(true);
     } finally {
       setLoading(false);
@@ -213,8 +223,8 @@ export default function LaunchpadScreen() {
                 }]}
                 placeholder="6"
                 placeholderTextColor={theme.colors.secondary}
-                value={tokenDecimals}
-                onChangeText={setTokenDecimals}
+                value={decimals}
+                onChangeText={setDecimals}
                 keyboardType="numeric"
               />
             </View>
@@ -229,8 +239,8 @@ export default function LaunchpadScreen() {
                 }]}
                 placeholder="1000000"
                 placeholderTextColor={theme.colors.secondary}
-                value={tokenSupply}
-                onChangeText={setTokenSupply}
+                value={totalSupply}
+                onChangeText={setTotalSupply}
                 keyboardType="numeric"
               />
             </View>
@@ -246,8 +256,8 @@ export default function LaunchpadScreen() {
               }]}
               placeholder="https://yourwebsite.com"
               placeholderTextColor={theme.colors.secondary}
-              value={tokenWebsite}
-              onChangeText={setTokenWebsite}
+              value={website}
+              onChangeText={setWebsite}
             />
           </View>
 
@@ -262,8 +272,8 @@ export default function LaunchpadScreen() {
                 }]}
                 placeholder="@username"
                 placeholderTextColor={theme.colors.secondary}
-                value={tokenTwitter}
-                onChangeText={setTokenTwitter}
+                value={twitter}
+                onChangeText={setTwitter}
               />
             </View>
 
@@ -277,15 +287,15 @@ export default function LaunchpadScreen() {
                 }]}
                 placeholder="t.me/group"
                 placeholderTextColor={theme.colors.secondary}
-                value={tokenTelegram}
-                onChangeText={setTokenTelegram}
+                value={telegram}
+                onChangeText={setTelegram}
               />
             </View>
           </View>
 
           <TouchableOpacity
             style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
-            onPress={createToken}
+            onPress={handleLaunchToken}
             disabled={loading}
           >
             <AppText style={[styles.createButtonText, { color: '#000' }]}>
@@ -413,6 +423,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     paddingTop: 60, // Add proper top padding
+    paddingBottom: 100, // Add bottom padding to clear the navbar
   },
   header: {
     marginBottom: 24,

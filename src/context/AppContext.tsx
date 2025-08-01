@@ -1,6 +1,10 @@
+import { TransferHookAMMService } from '@/src/services/TransferHookAMMService';
+import { TransferHookService } from '@/src/services/TransferHookService';
 import { PublicKey } from '@solana/web3.js';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { AMMService, LiquidityQuote, PoolInfo, SwapQuote } from '../services/AMMService';
+import { JupiterQuote, JupiterService } from '../services/JupiterService';
+import { QRCodeService } from '../services/QRCodeService';
 import { Token2022Service } from '../services/Token2022Service';
 import { TokenLaunchConfig, TokenLaunchResult, TokenLaunchService } from '../services/TokenLaunchService';
 import { WalletInfo, WalletService } from '../services/WalletService';
@@ -14,6 +18,33 @@ export interface Token2022Mint {
   confidentialTransferEnabled: boolean;
 }
 
+export interface TransferHookTokenConfig {
+  name: string;
+  symbol: string;
+  description: string;
+  decimals: number;
+  totalSupply: number;
+  hookFee: number;
+}
+
+export interface TransferHookPoolConfig {
+  tokenAMint: string;
+  tokenBMint: string;
+  feeRate: number;
+  hookFeeRate: number;
+}
+
+export interface TransferHookTokenResult {
+  mint: PublicKey;
+  signature: string;
+  hookProgramId: PublicKey;
+}
+
+export interface TransferHookPoolResult {
+  pool: PublicKey;
+  signature: string;
+}
+
 export interface AppContextType {
   walletInfo: WalletInfo | null;
   token2022Mints: Token2022Mint[];
@@ -22,6 +53,9 @@ export interface AppContextType {
   servicesInitialized: boolean;
   token2022Service: Token2022Service | null;
   tokenLaunchService: TokenLaunchService | null;
+  jupiterService: JupiterService | null;
+  qrCodeService: QRCodeService | null;
+  walletService: WalletService | null;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   requestAirdrop: (amount: number) => Promise<void>;
@@ -30,6 +64,19 @@ export interface AppContextType {
   performConfidentialTransfer: (from: PublicKey, to: PublicKey, amount: number) => Promise<void>;
   // Token Launch functions
   createTokenLaunch: (config: TokenLaunchConfig) => Promise<TokenLaunchResult>;
+  // Transfer Hook functions
+  createTransferHookToken: (config: TransferHookTokenConfig) => Promise<TransferHookTokenResult>;
+  createTransferHookPool: (config: TransferHookPoolConfig) => Promise<TransferHookPoolResult>;
+  transferWithHook: (source: PublicKey, destination: PublicKey, mint: PublicKey, amount: number, hookData?: Buffer) => Promise<string>;
+  // Jupiter Swap functions
+  getJupiterQuote: (inputMint: string, outputMint: string, amount: string, slippageBps?: number) => Promise<JupiterQuote>;
+  executeJupiterSwap: (quote: JupiterQuote, wrapUnwrapSOL?: boolean) => Promise<string>;
+  getSupportedTokens: () => Promise<any[]>;
+  getTokenPrice: (mint: string) => Promise<number>;
+  // QR Code functions
+  generateAddressQRCode: (address: string) => Promise<string>;
+  generateTransactionQRCode: (signature: string) => Promise<string>;
+  generateExplorerQRCode: (signature: string, network?: 'mainnet' | 'devnet' | 'testnet') => Promise<string>;
   // AMM functions
   ammService: AMMService | null;
   pools: PoolInfo[];
@@ -56,8 +103,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [walletService, setWalletService] = useState<WalletService | null>(null);
   const [token2022Service, setToken2022Service] = useState<Token2022Service | null>(null);
   const [tokenLaunchService, setTokenLaunchService] = useState<TokenLaunchService | null>(null);
+  const [jupiterService, setJupiterService] = useState<JupiterService | null>(null);
+  const [qrCodeService, setQrCodeService] = useState<QRCodeService | null>(null);
   const [ammService, setAmmService] = useState<AMMService | null>(null);
   const [pools, setPools] = useState<PoolInfo[]>([]);
+  const [transferHookService, setTransferHookService] = useState<TransferHookService | null>(null);
+  const [transferHookAMMService, setTransferHookAMMService] = useState<TransferHookAMMService | null>(null);
 
   useEffect(() => {
     const initializeServices = async () => {
@@ -81,6 +132,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         const tokenLaunchSvc = new TokenLaunchService(connection);
         console.log('TokenLaunchService created successfully');
         
+        const jupiterSvc = new JupiterService();
+        console.log('JupiterService created successfully');
+        
+        const qrCodeSvc = new QRCodeService();
+        console.log('QRCodeService created successfully');
+        
         const ammProgramId = new PublicKey('11111111111111111111111111111111');
         console.log('AMM Program ID:', ammProgramId.toString());
         
@@ -90,6 +147,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         setWalletService(walletSvc);
         setToken2022Service(token2022Svc);
         setTokenLaunchService(tokenLaunchSvc);
+        setJupiterService(jupiterSvc);
+        setQrCodeService(qrCodeSvc);
         setAmmService(ammSvc);
         setServicesInitialized(true);
         
@@ -99,149 +158,322 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         setError(`Failed to initialize services: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     };
+
     initializeServices();
   }, []);
 
   const connectWallet = async () => {
-    console.log('Attempting to connect wallet...');
-    console.log('Wallet service available:', !!walletService);
-    
     if (!walletService) {
-      const errorMsg = 'Wallet service not initialized. Please wait for services to load.';
-      console.error(errorMsg);
-      setError(errorMsg);
-      return;
+      throw new Error('Wallet service not initialized');
     }
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
-      console.log('Calling walletService.connectWallet()...');
-      const walletData = await walletService.connectWallet();
-      console.log('Wallet connected successfully:', walletData);
-      setWalletInfo(walletData);
+      console.log('=== CALLING CONNECT WALLET ===');
+      const info = await walletService.connectWallet();
+      console.log('Wallet connected successfully:', info);
+      setWalletInfo(info);
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to connect wallet';
       console.error('Error connecting wallet:', err);
-      setError(errorMsg);
+      setError(`Failed to connect wallet: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
   const disconnectWallet = () => {
+    if (walletService) {
+      walletService.disconnectWallet();
+    }
     setWalletInfo(null);
-      setError(null);
   };
 
   const requestAirdrop = async (amount: number) => {
     if (!walletService || !walletInfo) {
-      setError('Wallet not connected');
-      return;
+      throw new Error('Wallet not connected');
     }
 
-    setLoading(true);
-    setError(null);
-    
     try {
       await walletService.requestAirdrop(amount);
-      
-      // Refresh balance
-      if (walletInfo?.publicKey) {
-        const newBalance = await walletService.getSOLBalance(walletInfo.publicKey);
-        setWalletInfo(prev => prev ? { ...prev, balance: newBalance } : null);
+      // Refresh wallet info to get updated balance
+      const updatedInfo = await walletService.getWalletInfo();
+      if (updatedInfo) {
+        setWalletInfo(updatedInfo);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to request airdrop');
       console.error('Error requesting airdrop:', err);
-    } finally {
-      setLoading(false);
+      throw err;
     }
   };
 
-  const createToken2022Mint = async (decimals: number, supply: number): Promise<PublicKey> => {
-    if (!token2022Service || !walletInfo) {
-      throw new Error('Services not initialized or wallet not connected');
-    }
-
-    try {
-      // In a real implementation, this would create an actual Token-2022 mint
-      // For now, return a mock public key
-      const mockMint = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
-      
-      const newMint: Token2022Mint = {
-        mint: mockMint,
-        authority: walletInfo.publicKey,
-        supply,
-        decimals,
-        transferHookEnabled: false,
-        confidentialTransferEnabled: false,
-      };
-      
-      setToken2022Mints(prev => [...prev, newMint]);
-      return mockMint;
-    } catch (error) {
-      console.error('Error creating Token-2022 mint:', error);
-      throw error;
-    }
-  };
-
-  const enableConfidentialTransfers = async (mint: PublicKey): Promise<void> => {
-    // Placeholder implementation
-    console.log('Enabling confidential transfers for mint:', mint.toString());
-    
-    setToken2022Mints(prev => 
-      prev.map(m => 
-        m.mint.equals(mint) 
-          ? { ...m, confidentialTransferEnabled: true }
-          : m
-      )
-    );
-  };
-
-  const performConfidentialTransfer = async (from: PublicKey, to: PublicKey, amount: number): Promise<void> => {
-    // Placeholder implementation
-    console.log('Performing confidential transfer from:', from.toString(), 'to:', to.toString(), 'amount:', amount);
-  };
-
-  // Token Launch Functions
   const createTokenLaunch = async (config: TokenLaunchConfig): Promise<TokenLaunchResult> => {
     if (!tokenLaunchService || !walletInfo) {
       throw new Error('Token launch service not initialized or wallet not connected');
     }
 
     try {
-      console.log('Creating token launch:', config);
-      const result = await tokenLaunchService.createToken(config);
-      console.log('Token launch created successfully:', result);
+      // Create a keypair for the payer (in real app, this would be the user's keypair)
+      const { Keypair } = await import('@solana/web3.js');
+      const payerKeypair = Keypair.generate(); // This should be the user's actual keypair
+      
+      const result = await tokenLaunchService.createToken(payerKeypair, config);
       return result;
-    } catch (error) {
-      console.error('Error creating token launch:', error);
-      throw error;
+    } catch (err) {
+      console.error('Error creating token launch:', err);
+      throw err;
     }
   };
 
-  // AMM Functions
+  const createToken2022Mint = async (decimals: number, supply: number): Promise<PublicKey> => {
+    if (!token2022Service || !walletInfo) {
+      throw new Error('Token2022 service not initialized or wallet not connected');
+    }
+
+    try {
+      const { Keypair } = await import('@solana/web3.js');
+      const payerKeypair = Keypair.generate(); // This should be the user's actual keypair
+      
+      const mint = await token2022Service.initializeMint(payerKeypair, decimals, supply);
+      return mint;
+    } catch (err) {
+      console.error('Error creating Token-2022 mint:', err);
+      throw err;
+    }
+  };
+
+  const enableConfidentialTransfers = async (mint: PublicKey): Promise<void> => {
+    // This would require advanced Token-2022 extensions
+    console.log('Confidential transfers not implemented in this version');
+  };
+
+  const performConfidentialTransfer = async (from: PublicKey, to: PublicKey, amount: number): Promise<void> => {
+    // This would require advanced Token-2022 extensions
+    console.log('Confidential transfers not implemented in this version');
+  };
+
+  // Transfer Hook functions
+  const createTransferHookToken = async (config: TransferHookTokenConfig): Promise<TransferHookTokenResult> => {
+    if (!token2022Service || !walletInfo) {
+      throw new Error('Transfer Hook service not initialized or wallet not connected');
+    }
+
+    try {
+      const { Keypair } = await import('@solana/web3.js');
+      const payerKeypair = Keypair.generate();
+      
+      // Create mint with Transfer Hook
+      const mint = await token2022Service.initializeMintWithTransferHook(
+        payerKeypair,
+        config.decimals,
+        config.totalSupply,
+        {
+          programId: new PublicKey('11111111111111111111111111111111'), // Mock hook program
+          authority: payerKeypair.publicKey,
+        }
+      );
+      
+      return {
+        mint,
+        signature: 'mock_signature_' + Date.now(),
+        hookProgramId: new PublicKey('11111111111111111111111111111111'),
+      };
+    } catch (err) {
+      console.error('Error creating Transfer Hook token:', err);
+      throw err;
+    }
+  };
+
+  const createTransferHookPool = async (config: TransferHookPoolConfig): Promise<TransferHookPoolResult> => {
+    if (!ammService || !walletInfo) {
+      throw new Error('AMM service not initialized or wallet not connected');
+    }
+
+    try {
+      const { Keypair } = await import('@solana/web3.js');
+      const payerKeypair = Keypair.generate();
+      
+      const result = await ammService.initializePool(
+        payerKeypair,
+        new PublicKey(config.tokenAMint),
+        new PublicKey(config.tokenBMint),
+        config.feeRate
+      );
+      
+      return {
+        pool: result.pool,
+        signature: result.signature,
+      };
+    } catch (err) {
+      console.error('Error creating Transfer Hook pool:', err);
+      throw err;
+    }
+  };
+
+  const transferWithHook = async (
+    source: PublicKey,
+    destination: PublicKey,
+    mint: PublicKey,
+    amount: number,
+    hookData?: Buffer
+  ): Promise<string> => {
+    if (!token2022Service || !walletInfo) {
+      throw new Error('Token2022 service not initialized or wallet not connected');
+    }
+
+    try {
+      const { Keypair } = await import('@solana/web3.js');
+      const payerKeypair = Keypair.generate();
+      
+      // Mock transfer with hook
+      const signature = 'mock_transfer_' + Date.now();
+      console.log('Transfer with hook executed:', { source: source.toString(), destination: destination.toString(), mint: mint.toString(), amount });
+      
+      return signature;
+    } catch (err) {
+      console.error('Error transferring with hook:', err);
+      throw err;
+    }
+  };
+  // Jupiter Swap functions
+  const getJupiterQuote = async (
+    inputMint: string,
+    outputMint: string,
+    amount: string,
+    slippageBps: number = 50
+  ): Promise<JupiterQuote> => {
+    if (!jupiterService) {
+      throw new Error('Jupiter service not initialized');
+    }
+
+    try {
+      return await jupiterService.getQuote(inputMint, outputMint, amount, slippageBps);
+    } catch (err) {
+      console.error('Error getting Jupiter quote:', err);
+      throw err;
+    }
+  };
+
+  const executeJupiterSwap = async (
+    quote: JupiterQuote,
+    wrapUnwrapSOL: boolean = true
+  ): Promise<string> => {
+    if (!jupiterService || !walletInfo) {
+      throw new Error('Jupiter service not initialized or wallet not connected');
+    }
+
+    try {
+      // Get swap transaction
+      const swapTransaction = await jupiterService.getSwapTransaction(
+        quote,
+        walletInfo.publicKey.toString(),
+        wrapUnwrapSOL
+      );
+
+      // Execute the swap
+      const signature = await jupiterService.executeSwap(swapTransaction, walletInfo);
+      return signature;
+    } catch (err) {
+      console.error('Error executing Jupiter swap:', err);
+      throw err;
+    }
+  };
+
+  const getSupportedTokens = async (): Promise<any[]> => {
+    if (!jupiterService) {
+      throw new Error('Jupiter service not initialized');
+    }
+
+    try {
+      return await jupiterService.getSupportedTokens();
+    } catch (err) {
+      console.error('Error getting supported tokens:', err);
+      throw err;
+    }
+  };
+
+  const getTokenPrice = async (mint: string): Promise<number> => {
+    if (!jupiterService) {
+      throw new Error('Jupiter service not initialized');
+    }
+
+    try {
+      return await jupiterService.getTokenPrice(mint);
+    } catch (err) {
+      console.error('Error getting token price:', err);
+      return 0;
+    }
+  };
+
+  // QR Code functions
+  const generateAddressQRCode = async (address: string): Promise<string> => {
+    if (!qrCodeService) {
+      throw new Error('QR code service not initialized');
+    }
+
+    try {
+      return await qrCodeService.generateAddressQRCode(address);
+    } catch (err) {
+      console.error('Error generating address QR code:', err);
+      throw err;
+    }
+  };
+
+  const generateTransactionQRCode = async (signature: string): Promise<string> => {
+    if (!qrCodeService) {
+      throw new Error('QR code service not initialized');
+    }
+
+    try {
+      return await qrCodeService.generateTransactionQRCode(signature);
+    } catch (err) {
+      console.error('Error generating transaction QR code:', err);
+      throw err;
+    }
+  };
+
+  const generateExplorerQRCode = async (
+    signature: string,
+    network: 'mainnet' | 'devnet' | 'testnet' = 'devnet'
+  ): Promise<string> => {
+    if (!qrCodeService) {
+      throw new Error('QR code service not initialized');
+    }
+
+    try {
+      return await qrCodeService.generateExplorerQRCode(signature, network);
+    } catch (err) {
+      console.error('Error generating explorer QR code:', err);
+      throw err;
+    }
+  };
+
+  // AMM functions - simplified for now
   const getSwapQuote = (poolAddress: PublicKey, amountIn: number, isTokenAToB: boolean): SwapQuote | null => {
     if (!ammService) return null;
-
-    const pool = pools.find(p => p.pool.equals(poolAddress));
-    if (!pool) return null;
-
-    const reserveIn = isTokenAToB ? pool.tokenAReserves : pool.tokenBReserves;
-    const reserveOut = isTokenAToB ? pool.tokenBReserves : pool.tokenAReserves;
-
-    return ammService.calculateSwapQuote(amountIn, reserveIn, reserveOut, pool.feeRate);
+    
+    // Mock implementation for now
+    return {
+      amountIn,
+      amountOut: amountIn * 0.95, // Mock 5% fee
+      fee: amountIn * 0.05,
+      priceImpact: 0.1,
+      slippage: 0.5,
+    };
   };
 
   const getLiquidityQuote = (poolAddress: PublicKey, tokenAAmount: number, tokenBAmount: number): LiquidityQuote | null => {
     if (!ammService) return null;
-
-    const pool = pools.find(p => p.pool.equals(poolAddress));
-    if (!pool) return null;
-
-    return ammService.calculateLiquidityQuote(tokenAAmount, tokenBAmount, pool);
+    
+    // Mock implementation for now
+    return {
+      tokenAAmount,
+      tokenBAmount,
+      lpTokensToMint: Math.sqrt(tokenAAmount * tokenBAmount),
+      share: 0.1,
+    };
   };
 
   const executeSwap = async (poolAddress: PublicKey, amountIn: number, minAmountOut: number, isTokenAToB: boolean): Promise<string> => {
@@ -250,21 +482,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
 
     try {
-      // In a real implementation, you would need the user's keypair
-      // For now, we'll simulate the transaction
-      console.log('Executing swap:', { poolAddress: poolAddress.toString(), amountIn, minAmountOut, isTokenAToB });
-      
-      // Simulate transaction signature
-      const mockSignature = 'mock_signature_' + Date.now();
-      
-      // Add notification for successful swap
-      // This would be integrated with the notification system
-      console.log('Swap executed successfully:', mockSignature);
-      
+      // Mock swap for now
+      const mockSignature = 'mock_swap_' + Date.now();
+      console.log('Mock swap executed:', { poolAddress: poolAddress.toString(), amountIn, minAmountOut, isTokenAToB });
       return mockSignature;
-    } catch (error) {
-      console.error('Error executing swap:', error);
-      throw error;
+    } catch (err) {
+      console.error('Error executing swap:', err);
+      throw err;
     }
   };
 
@@ -274,18 +498,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
 
     try {
-      // In a real implementation, you would need the user's keypair
-      console.log('Adding liquidity:', { poolAddress: poolAddress.toString(), tokenAAmount, tokenBAmount, minLpTokens });
-      
-      // Simulate transaction signature
-      const mockSignature = 'mock_liquidity_signature_' + Date.now();
-      
-      console.log('Liquidity added successfully:', mockSignature);
-      
+      // Mock liquidity addition for now
+      const mockSignature = 'mock_liquidity_' + Date.now();
+      console.log('Mock liquidity added:', { poolAddress: poolAddress.toString(), tokenAAmount, tokenBAmount, minLpTokens });
       return mockSignature;
-    } catch (error) {
-      console.error('Error adding liquidity:', error);
-      throw error;
+    } catch (err) {
+      console.error('Error adding liquidity:', err);
+      throw err;
     }
   };
 
@@ -295,19 +514,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
 
     try {
-      // In a real implementation, you would need the user's keypair
-      console.log('Initializing pool:', { tokenAMint: tokenAMint.toString(), tokenBMint: tokenBMint.toString(), feeRate });
-      
-      // Simulate pool creation
+      // Mock pool initialization for now
       const mockPool = new PublicKey('Pool' + Date.now().toString().padStart(44, '1'));
-      const mockSignature = 'mock_pool_signature_' + Date.now();
-      
-      console.log('Pool initialized successfully:', mockPool.toString());
-      
+      const mockSignature = 'mock_pool_' + Date.now();
+      console.log('Mock pool initialized:', { tokenAMint: tokenAMint.toString(), tokenBMint: tokenBMint.toString(), feeRate });
       return { pool: mockPool, signature: mockSignature };
-    } catch (error) {
-      console.error('Error initializing pool:', error);
-      throw error;
+    } catch (err) {
+      console.error('Error initializing pool:', err);
+      throw err;
     }
   };
 
@@ -315,12 +529,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     if (!ammService) return;
 
     try {
-      // Load mock pools for now - using valid base58 public keys
+      // Mock pools for now
       const mockPools: PoolInfo[] = [
         {
           pool: new PublicKey('11111111111111111111111111111111'),
           tokenAMint: new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'),
-          tokenBMint: new PublicKey('So11111111111111111111111111111111111111112'), // SOL
+          tokenBMint: new PublicKey('So11111111111111111111111111111111111111112'),
           tokenAVault: new PublicKey('11111111111111111111111111111112'),
           tokenBVault: new PublicKey('11111111111111111111111111111113'),
           lpMint: new PublicKey('11111111111111111111111111111114'),
@@ -329,35 +543,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           tokenAReserves: 500000,
           tokenBReserves: 1000,
           isActive: true,
-        },
-        {
-          pool: new PublicKey('11111111111111111111111111111115'),
-          tokenAMint: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'), // USDC
-          tokenBMint: new PublicKey('So11111111111111111111111111111111111111112'), // SOL
-          tokenAVault: new PublicKey('11111111111111111111111111111116'),
-          tokenBVault: new PublicKey('11111111111111111111111111111117'),
-          lpMint: new PublicKey('11111111111111111111111111111118'),
-          feeRate: 25,
-          totalLiquidity: 2000000,
-          tokenAReserves: 1000000,
-          tokenBReserves: 5000,
-          isActive: true,
+          supportsTransferHooks: true,
         },
       ];
-
       setPools(mockPools);
-    } catch (error) {
-      console.error('Error loading pools:', error);
+    } catch (err) {
+      console.error('Error loading pools:', err);
     }
   };
 
-  useEffect(() => {
-    if (ammService) {
-      loadPools();
-    }
-  }, [ammService]);
-
-  const value: AppContextType = {
+  const contextValue: AppContextType = {
     walletInfo,
     token2022Mints,
     loading,
@@ -365,6 +560,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     servicesInitialized,
     token2022Service,
     tokenLaunchService,
+    jupiterService,
+    qrCodeService,
+    walletService,
     connectWallet,
     disconnectWallet,
     requestAirdrop,
@@ -372,6 +570,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     enableConfidentialTransfers,
     performConfidentialTransfer,
     createTokenLaunch,
+    createTransferHookToken,
+    createTransferHookPool,
+    transferWithHook,
+    getJupiterQuote,
+    executeJupiterSwap,
+    getSupportedTokens,
+    getTokenPrice,
+    generateAddressQRCode,
+    generateTransactionQRCode,
+    generateExplorerQRCode,
     ammService,
     pools,
     getSwapQuote,
@@ -381,8 +589,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     initializePool,
     loadPools,
   };
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={contextValue}>
+      {children}
+    </AppContext.Provider>
+  );
 };
 
 export const useApp = (): AppContextType => {
@@ -391,4 +602,4 @@ export const useApp = (): AppContextType => {
     throw new Error('useApp must be used within an AppProvider');
   }
   return context;
-}; 
+};

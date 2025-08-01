@@ -15,9 +15,9 @@ export class WalletService {
   private wallet: any = null;
 
   constructor() {
-    // Multiple RPC endpoints for fallback
+    // Multiple RPC endpoints for fallback - using testnet
     this.connections = [
-      new Connection('https://api.devnet.solana.com', {
+      new Connection('https://api.testnet.solana.com', {
         commitment: 'confirmed',
         confirmTransactionInitialTimeout: 60000,
         disableRetryOnRateLimit: false,
@@ -25,7 +25,7 @@ export class WalletService {
           'Content-Type': 'application/json',
         },
       }),
-      new Connection('https://solana-devnet.g.alchemy.com/v2/demo', {
+      new Connection('https://solana-testnet.g.alchemy.com/v2/demo', {
         commitment: 'confirmed',
         confirmTransactionInitialTimeout: 60000,
         disableRetryOnRateLimit: false,
@@ -33,7 +33,7 @@ export class WalletService {
           'Content-Type': 'application/json',
         },
       }),
-      new Connection('https://devnet.helius.xyz/?api-key=1aec0e5a-8f0f-4c0f-9f0f-1aec0e5a8f0f', {
+      new Connection('https://testnet.helius.xyz/?api-key=1aec0e5a-8f0f-4c0f-9f0f-1aec0e5a8f0f', {
         commitment: 'confirmed',
         confirmTransactionInitialTimeout: 60000,
         disableRetryOnRateLimit: false,
@@ -97,7 +97,7 @@ export class WalletService {
           name: 'DEX Screener',
           uri: 'https://dex-screener.com',
         },
-        chain: 'solana:devnet',
+        chain: 'solana:testnet',
       });
       
       console.log('Auth result received, processing...');

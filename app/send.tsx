@@ -5,17 +5,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+
 
 export default function SendScreen({ hideHeader = false }: { hideHeader?: boolean }) {
   const { theme } = useAppTheme();
-  const { walletInfo } = useApp();
+  const { walletInfo, walletService } = useApp();
   
   // Transfer state
   const [recipientAddress, setRecipientAddress] = useState('');
@@ -60,7 +61,7 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
   };
 
   const handleSend = async () => {
-    if (!walletInfo) {
+    if (!walletInfo || !walletService) {
       Alert.alert('Error', 'Please connect your wallet first');
       return;
     }
@@ -89,15 +90,39 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
     setLoading(true);
     
     try {
-      // Simulate transfer (frontend only)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Create real SOL transfer transaction
+      const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+      
+      const connection = new Connection('https://api.testnet.solana.com', 'confirmed');
+      const transaction = new Transaction();
+      
+      // Add transfer instruction
+      const transferInstruction = SystemProgram.transfer({
+        fromPubkey: walletInfo.publicKey,
+        toPubkey: new PublicKey(recipientAddress),
+        lamports: Math.floor(numAmount * LAMPORTS_PER_SOL),
+      });
+      
+      transaction.add(transferInstruction);
+      
+      // Get recent blockhash
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = walletInfo.publicKey;
+      
+      // Sign and send transaction using the wallet service
+      const signature = await walletService.sendTransaction(transaction);
+      
+      // Wait for confirmation
+      await connection.confirmTransaction(signature, 'confirmed');
       
       Alert.alert(
         'Transfer Successful!',
-        `Sent ${amount} SOL to ${recipientAddress.slice(0, 8)}...${recipientAddress.slice(-8)}`,
+        `Sent ${amount} SOL to ${recipientAddress.slice(0, 8)}...${recipientAddress.slice(-8)}\n\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}`,
         [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error) {
+      console.error('Transfer error:', error);
       Alert.alert('Error', 'Transfer failed. Please try again.');
     } finally {
       setLoading(false);

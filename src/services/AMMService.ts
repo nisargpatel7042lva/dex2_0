@@ -27,6 +27,7 @@ export interface PoolInfo {
   tokenAReserves: number;
   tokenBReserves: number;
   isActive: boolean;
+  supportsTransferHooks: boolean;
 }
 
 export interface SwapQuote {
@@ -35,6 +36,7 @@ export interface SwapQuote {
   fee: number;
   priceImpact: number;
   slippage: number;
+  transferHookFee?: number;
 }
 
 export interface LiquidityQuote {
@@ -42,6 +44,12 @@ export interface LiquidityQuote {
   tokenBAmount: number;
   lpTokensToMint: number;
   share: number;
+}
+
+export interface TransferHookInfo {
+  programId: PublicKey;
+  authority: PublicKey;
+  data?: Buffer;
 }
 
 export class AMMService {
@@ -77,6 +85,7 @@ export class AMMService {
         tokenAReserves: Number(data.readBigUInt64LE(8 + 208)),
         tokenBReserves: Number(data.readBigUInt64LE(8 + 216)),
         isActive: data[8 + 224] === 1,
+        supportsTransferHooks: false, // Placeholder, will be updated
       };
 
       return poolInfo;
@@ -456,6 +465,7 @@ export class AMMService {
           tokenAReserves: 500000,
           tokenBReserves: 1000,
           isActive: true,
+          supportsTransferHooks: false,
         },
       ];
 
@@ -492,5 +502,138 @@ export class AMMService {
       console.error('Error getting pool TVL:', error);
       return 0;
     }
+  }
+
+  /**
+   * Check if a token has Transfer Hook
+   */
+  async hasTransferHook(mint: PublicKey): Promise<TransferHookInfo | null> {
+    try {
+      const accountInfo = await this.connection.getAccountInfo(mint);
+      if (!accountInfo) return null;
+
+      // Check if mint has Transfer Hook extension
+      const data = accountInfo.data;
+      if (data.length < 278) return null; // Basic mint without Transfer Hook
+
+      // Parse Transfer Hook data (simplified)
+      const transferHookProgramId = new PublicKey(data.slice(82, 114));
+      const transferHookAuthority = new PublicKey(data.slice(114, 146));
+      
+      return {
+        programId: transferHookProgramId,
+        authority: transferHookAuthority,
+        data: data.slice(146, 278),
+      };
+    } catch (error) {
+      console.error('Error checking Transfer Hook:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Execute swap with Transfer Hook support
+   */
+  async swapWithTransferHook(
+    payer: Keypair,
+    poolAddress: PublicKey,
+    amountIn: number,
+    minAmountOut: number,
+    isTokenAToB: boolean,
+    transferHookData?: Buffer
+  ): Promise<string> {
+    try {
+      const poolInfo = await this.getPoolInfo(poolAddress);
+      if (!poolInfo) {
+        throw new Error('Pool not found');
+      }
+
+      // Check for Transfer Hooks
+      const tokenAMint = isTokenAToB ? poolInfo.tokenAMint : poolInfo.tokenBMint;
+      const tokenBMint = isTokenAToB ? poolInfo.tokenBMint : poolInfo.tokenAMint;
+      
+      const tokenAHook = await this.hasTransferHook(tokenAMint);
+      const tokenBHook = await this.hasTransferHook(tokenBMint);
+
+      const transaction = new Transaction();
+
+      // Add Transfer Hook instructions if needed
+      if (tokenAHook) {
+        const hookInstruction = createTransferHookInstruction(
+          tokenAMint,
+          payer.publicKey,
+          tokenAHook.programId,
+          tokenAHook.authority,
+          transferHookData || Buffer.alloc(0),
+          TOKEN_2022_PROGRAM_ID
+        );
+        transaction.add(hookInstruction);
+      }
+
+      if (tokenBHook) {
+        const hookInstruction = createTransferHookInstruction(
+          tokenBMint,
+          payer.publicKey,
+          tokenBHook.programId,
+          tokenBHook.authority,
+          transferHookData || Buffer.alloc(0),
+          TOKEN_2022_PROGRAM_ID
+        );
+        transaction.add(hookInstruction);
+      }
+
+      // Add swap instruction (simplified - in real implementation, this would be a proper AMM swap)
+      const swapInstruction = this.createSwapInstruction(
+        poolAddress,
+        amountIn,
+        minAmountOut,
+        isTokenAToB
+      );
+      transaction.add(swapInstruction);
+
+      // Get recent blockhash
+      const { blockhash } = await this.connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = payer.publicKey;
+
+      // Sign and send transaction
+      const signature = await sendAndConfirmTransaction(
+        this.connection,
+        transaction,
+        [payer]
+      );
+
+      console.log('Swap with Transfer Hook executed successfully:', {
+        pool: poolAddress.toString(),
+        amountIn,
+        minAmountOut,
+        isTokenAToB,
+        hasTransferHooks: !!(tokenAHook || tokenBHook),
+        signature
+      });
+
+      return signature;
+    } catch (error) {
+      console.error('Error executing swap with Transfer Hook:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create swap instruction (simplified)
+   */
+  private createSwapInstruction(
+    poolAddress: PublicKey,
+    amountIn: number,
+    minAmountOut: number,
+    isTokenAToB: boolean
+  ) {
+    // This is a simplified swap instruction
+    // In a real implementation, this would be a proper AMM swap instruction
+    return SystemProgram.transfer({
+      fromPubkey: new PublicKey('11111111111111111111111111111111'),
+      toPubkey: poolAddress,
+      lamports: amountIn,
+    });
   }
 } 

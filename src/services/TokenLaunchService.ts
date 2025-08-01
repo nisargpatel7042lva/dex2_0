@@ -1,4 +1,5 @@
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import { Token2022Service } from './Token2022Service';
 
 export interface TokenLaunchConfig {
   name: string;
@@ -19,13 +20,15 @@ export interface TokenLaunchResult {
 
 export class TokenLaunchService {
   private connection: Connection;
+  private token2022Service: Token2022Service;
 
   constructor(connection: Connection) {
     this.connection = connection;
+    this.token2022Service = new Token2022Service(connection);
   }
 
   /**
-   * Create a new Token-2022 token (simplified version)
+   * Create a new Token-2022 token
    */
   async createToken(
     payer: Keypair,
@@ -34,25 +37,40 @@ export class TokenLaunchService {
     try {
       console.log('Creating Token-2022 with config:', config);
       
-      // Generate mint keypair
-      const mint = Keypair.generate();
+      // Create the mint using Token2022Service
+      const mint = await this.token2022Service.initializeMint(
+        payer,
+        config.decimals,
+        config.totalSupply
+      );
       
-      // For now, return a mock result since we're not implementing full blockchain integration
-      // In a real implementation, this would create the actual token on Solana
+      // Mint initial supply to the payer
+      const signature = await this.token2022Service.mintTo(
+        payer,
+        mint,
+        payer.publicKey,
+        config.totalSupply
+      );
       
-      const mockTokenAccount = new PublicKey('TokenAccount' + Date.now().toString().padStart(44, '1'));
-      const mockSignature = 'mock_signature_' + Date.now();
+      // Get associated token account
+      const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+      const tokenAccount = await getAssociatedTokenAddress(
+        mint,
+        payer.publicKey,
+        false,
+        await import('@solana/spl-token').then(m => m.TOKEN_2022_PROGRAM_ID)
+      );
       
-      console.log('Token created successfully (mock):', {
-        mint: mint.publicKey.toString(),
-        signature: mockSignature,
-        tokenAccount: mockTokenAccount.toString()
+      console.log('Token created successfully:', {
+        mint: mint.toString(),
+        signature: signature,
+        tokenAccount: tokenAccount.toString()
       });
       
       return { 
-        mint: mint.publicKey, 
-        signature: mockSignature, 
-        tokenAccount: mockTokenAccount 
+        mint: mint, 
+        signature: signature, 
+        tokenAccount: tokenAccount 
       };
     } catch (error) {
       console.error('Error creating token:', error);
@@ -65,8 +83,8 @@ export class TokenLaunchService {
    */
   async getTokenInfo(mint: PublicKey): Promise<any> {
     try {
-      const accountInfo = await this.connection.getAccountInfo(mint);
-      return accountInfo;
+      const mintInfo = await this.token2022Service.getMintInfo(mint);
+      return mintInfo;
     } catch (error) {
       console.error('Error getting token info:', error);
       throw error;
@@ -78,8 +96,16 @@ export class TokenLaunchService {
    */
   async getTokenBalance(mint: PublicKey, owner: PublicKey): Promise<number> {
     try {
-      // Simplified balance check
-      return 0; // Placeholder
+      const { getAssociatedTokenAddress, getAccount } = await import('@solana/spl-token');
+      const tokenAccount = await getAssociatedTokenAddress(
+        mint,
+        owner,
+        false,
+        await import('@solana/spl-token').then(m => m.TOKEN_2022_PROGRAM_ID)
+      );
+      
+      const accountInfo = await getAccount(this.connection, tokenAccount);
+      return Number(accountInfo.amount);
     } catch (error) {
       console.error('Error getting token balance:', error);
       return 0;
