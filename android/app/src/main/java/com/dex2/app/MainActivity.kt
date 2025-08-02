@@ -1,4 +1,4 @@
-package com.nisargxplores.web3jsexpo
+package com.dex2.app
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

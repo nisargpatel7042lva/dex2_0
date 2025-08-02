@@ -257,8 +257,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.nisargxplores.web3jsexpo";
-				PRODUCT_NAME = "web3jsexpo";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.dex2.app";
+				PRODUCT_NAME = "DEX20";
 				SWIFT_OBJC_BRIDGING_HEADER = "web3jsexpo/web3jsexpo-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -286,8 +286,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.nisargxplores.web3jsexpo";
-				PRODUCT_NAME = "web3jsexpo";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.dex2.app";
+				PRODUCT_NAME = "DEX20";
 				SWIFT_OBJC_BRIDGING_HEADER = "web3jsexpo/web3jsexpo-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";

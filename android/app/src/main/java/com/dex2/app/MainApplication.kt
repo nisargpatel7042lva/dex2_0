@@ -1,4 +1,4 @@
-package com.nisargxplores.web3jsexpo
+package com.dex2.app
 
 import android.app.Application
 import android.content.res.Configuration

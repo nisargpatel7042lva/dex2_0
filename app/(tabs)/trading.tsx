@@ -8,12 +8,11 @@ import React, { useState } from 'react';
 import {
   Alert,
   FlatList,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 interface TradingPool {

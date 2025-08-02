@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>web3js-expo</string>
+    <string>DEX 2.0</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -27,14 +27,14 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>templateexpobasic</string>
-          <string>com.nisargxplores.web3jsexpo</string>
+          <string>dex2-0</string>
+          <string>com.dex2.app</string>
         </array>
       </dict>
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>exp+web3js-expo</string>
+          <string>exp+dex2-0</string>
         </array>
       </dict>
     </array>
