@@ -63,6 +63,12 @@ export default function TabLayout() {
           <Tabs.Screen name="launchpad" />
           <Tabs.Screen name="portfolio" />
           <Tabs.Screen name="settings" />
+          <Tabs.Screen 
+            name="transfer-hook-launchpad" 
+            options={{ 
+              href: null  // This hides it from the tab bar
+            }} 
+          />
         </Tabs>
       </View>
 

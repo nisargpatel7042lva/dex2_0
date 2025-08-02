@@ -230,7 +230,6 @@ export class WalletService {
         throw new Error('No wallet connected');
     }
 
-      // For mobile wallet, transactions are signed during send
     return transaction;
     } catch (error) {
       console.error('Error signing transaction:', error);

@@ -1,9 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
-import { TokenBalance } from '../services/WalletService';
+import { } from '../services/WalletService';
 
 const PortfolioScreen: React.FC = () => {
   const { walletService, walletInfo, requestAirdrop } = useApp();
@@ -48,7 +56,7 @@ const PortfolioScreen: React.FC = () => {
   };
 
   const renderTokenItem = ({ item }: { item: TokenBalance }) => (
-    <View style={styles.tokenItem}>
+    <TouchableOpacity style={styles.tokenItem}>
       <View style={styles.tokenInfo}>
         <View style={styles.tokenIcon}>
           <Text style={styles.tokenIconText}>
@@ -69,7 +77,7 @@ const PortfolioScreen: React.FC = () => {
           ${item.value?.toFixed(2) || '0.00'}
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const formatNumber = (num: number): string => {
@@ -89,6 +97,9 @@ const PortfolioScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Portfolio Header */}
         <View style={styles.header}>
@@ -210,7 +221,7 @@ const PortfolioScreen: React.FC = () => {
               { type: 'receive', token: 'DEX2', amount: '1000', time: '1 day ago' },
               { type: 'send', token: 'USDC', amount: '50', time: '3 days ago' },
             ].map((activity, index) => (
-              <View key={index} style={styles.activityItem}>
+              <View key={`${activity.type}-${activity.token}-${index}`} style={styles.activityItem}>
                 <View style={[
                   styles.activityIcon,
                   activity.type === 'swap' && { backgroundColor: '#eef2ff' },

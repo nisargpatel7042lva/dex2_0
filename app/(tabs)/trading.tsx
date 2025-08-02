@@ -6,13 +6,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { PublicKey } from '@solana/web3.js';
 import React, { useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 interface TradingPool {
@@ -214,9 +215,9 @@ export default function TradingScreen() {
               { key: 'all', label: 'All' },
               { key: 'active', label: 'Active' },
               { key: 'trending', label: 'Trending' },
-            ].map((filter, index) => (
+            ].map((filter) => (
               <TouchableOpacity
-                key={`filter-${filter.key}-${index}`}
+                key={filter.key}
                 style={[
                   styles.filterButton,
                   { backgroundColor: selectedFilter === filter.key ? theme.colors.primary : theme.colors.card },
@@ -341,9 +342,8 @@ export default function TradingScreen() {
               {filteredPools.length > 0 ? (
                 <FlatList
                   data={filteredPools}
-                  renderItem={({ item, index }) => (
+                  renderItem={({ item }) => (
                     <TouchableOpacity
-                      key={`${item.pool}-${index}`}
                       style={[styles.poolCard, { backgroundColor: theme.colors.card }]}
                       onPress={() => handlePoolSelect(item)}
                       activeOpacity={0.7}
@@ -356,18 +356,6 @@ export default function TradingScreen() {
                           <AppText style={[styles.poolFee, { color: theme.colors.muted }]}>
                             {item.feeRate}% fee
                           </AppText>
-                        </View>
-                        <View style={styles.poolStatus}>
-                          <View 
-                            style={[
-                              styles.statusBadge, 
-                              { backgroundColor: item.isActive ? '#10b981' : '#ef4444' }
-                            ]}
-                          >
-                            <AppText style={styles.statusText}>
-                              {item.isActive ? 'Active' : 'Inactive'}
-                            </AppText>
-                          </View>
                         </View>
                       </View>
 
