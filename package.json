@@ -44,7 +44,7 @@
     "@rn-primitives/portal": "^1.3.0",
     "@solana-mobile/mobile-wallet-adapter-protocol": "^2.2.2",
     "@solana-mobile/mobile-wallet-adapter-protocol-web3js": "^2.2.2",
-    "@solana/spl-token": "^0.4.13",
+    "@solana/spl-token": "^0.1.8",
     "@solana/web3.js": "^1.98.2",
     "@tanstack/react-query": "^5.80.6",
     "@wallet-standard/core": "^1.1.1",
