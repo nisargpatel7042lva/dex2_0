@@ -58,6 +58,7 @@ export interface AppContextType {
   qrCodeService: QRCodeService | null;
   walletService: WalletService | null;
   tokenImageService: TokenImageService | null;
+  dexService: any | null; // Add missing dexService
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   requestAirdrop: (amount: number) => Promise<void>;
@@ -118,44 +119,53 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [transferHookService, setTransferHookService] = useState<TransferHookService | null>(null);
   const [transferHookAMMService, setTransferHookAMMService] = useState<TransferHookAMMService | null>(null);
   const [tokenImageService, setTokenImageService] = useState<TokenImageService | null>(null);
+  const [dexService, setDexService] = useState<any | null>(null);
 
   useEffect(() => {
     const initializeServices = async () => {
       try {
-        console.log('Initializing services...');
+        console.log('🔄 Starting services initialization...');
         
         // Initialize services with connection
         const { Connection } = await import('@solana/web3.js');
+        console.log('✅ Web3.js imported successfully');
+        
         const connection = new Connection(
           'https://api.devnet.solana.com',
           'confirmed'
         );
-        console.log('Connection created successfully');
+        console.log('✅ Connection created');
         
+        console.log('🔄 Creating WalletService...');
         const walletSvc = new WalletService();
-        console.log('WalletService created successfully');
+        console.log('✅ WalletService created');
         
+        console.log('🔄 Creating Token2022Service...');
         const token2022Svc = new Token2022Service(connection);
-        console.log('Token2022Service created successfully');
-
+        console.log('✅ Token2022Service created');
+        
+        console.log('🔄 Creating TokenLaunchService...');
         const tokenLaunchSvc = new TokenLaunchService(connection);
-        console.log('TokenLaunchService created successfully');
+        console.log('✅ TokenLaunchService created');
         
+        console.log('🔄 Creating JupiterService...');
         const jupiterSvc = new JupiterService();
-        console.log('JupiterService created successfully');
+        console.log('✅ JupiterService created');
         
+        console.log('🔄 Creating QRCodeService...');
         const qrCodeSvc = new QRCodeService();
-        console.log('QRCodeService created successfully');
+        console.log('✅ QRCodeService created');
         
+        console.log('🔄 Creating AMMService...');
         const ammProgramId = new PublicKey('11111111111111111111111111111111');
-        console.log('AMM Program ID:', ammProgramId.toString());
-        
         const ammSvc = new AMMService(connection, ammProgramId);
-        console.log('AMMService created successfully');
-
+        console.log('✅ AMMService created');
+        
+        console.log('🔄 Creating TokenImageService...');
         const tokenImageSvc = new TokenImageService();
-        console.log('TokenImageService created successfully');
+        console.log('✅ TokenImageService created');
 
+        console.log('🔄 Setting services in state...');
         setWalletService(walletSvc);
         setToken2022Service(token2022Svc);
         setTokenLaunchService(tokenLaunchSvc);
@@ -163,11 +173,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         setQrCodeService(qrCodeSvc);
         setAmmService(ammSvc);
         setTokenImageService(tokenImageSvc);
-        setServicesInitialized(true);
         
-        console.log('All services initialized successfully');
+        console.log('🔄 Setting servicesInitialized to true...');
+        setServicesInitialized(true);
+        console.log('✅ All services initialized successfully!');
       } catch (err) {
-        console.error('Error initializing services:', err);
+        console.error('❌ Error initializing services:', err);
         setError(`Failed to initialize services: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     };
@@ -184,9 +195,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setError(null);
 
     try {
-      console.log('=== CALLING CONNECT WALLET ===');
       const info = await walletService.connectWallet();
-      console.log('Wallet connected successfully:', info);
       setWalletInfo(info);
     } catch (err) {
       console.error('Error connecting wallet:', err);
@@ -342,7 +351,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       
       // Mock transfer with hook
       const signature = 'mock_transfer_' + Date.now();
-      console.log('Transfer with hook executed:', { source: source.toString(), destination: destination.toString(), mint: mint.toString(), amount });
       
       return signature;
     } catch (err) {
@@ -393,7 +401,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         
         // Send the transaction through the wallet
         const signature = await walletService.sendTransaction(transaction);
-        console.log('Jupiter swap executed successfully:', signature);
         return signature;
       }
 
@@ -520,7 +527,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       // Mock swap for now
       const mockSignature = 'mock_swap_' + Date.now();
-      console.log('Mock swap executed:', { poolAddress: poolAddress.toString(), amountIn, minAmountOut, isTokenAToB });
       return mockSignature;
     } catch (err) {
       console.error('Error executing swap:', err);
@@ -536,7 +542,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       // Mock liquidity addition for now
       const mockSignature = 'mock_liquidity_' + Date.now();
-      console.log('Mock liquidity added:', { poolAddress: poolAddress.toString(), tokenAAmount, tokenBAmount, minLpTokens });
       return mockSignature;
     } catch (err) {
       console.error('Error adding liquidity:', err);
@@ -553,7 +558,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       // Mock pool initialization for now
       const mockPool = new PublicKey('Pool' + Date.now().toString().padStart(44, '1'));
       const mockSignature = 'mock_pool_' + Date.now();
-      console.log('Mock pool initialized:', { tokenAMint: tokenAMint.toString(), tokenBMint: tokenBMint.toString(), feeRate });
       return { pool: mockPool, signature: mockSignature };
     } catch (err) {
       console.error('Error initializing pool:', err);
@@ -652,6 +656,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     qrCodeService,
     walletService,
     tokenImageService,
+    dexService,
     connectWallet,
     disconnectWallet,
     requestAirdrop,

@@ -5,12 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 
@@ -90,6 +90,13 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
     setLoading(true);
     
     try {
+      // Show signing prompt
+      Alert.alert(
+        'Sign Transaction',
+        'Please sign the transfer transaction in your wallet to proceed.',
+        [{ text: 'OK' }]
+      );
+      
       // Create real SOL transfer transaction
       const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
       
@@ -113,17 +120,32 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
       // Sign and send transaction using the wallet service
       const signature = await walletService.sendTransaction(transaction);
       
+      // Show confirmation message
+      Alert.alert(
+        'Transaction Submitted',
+        'Your transfer transaction has been submitted. Waiting for confirmation...',
+        [{ text: 'OK' }]
+      );
+      
       // Wait for confirmation
       await connection.confirmTransaction(signature, 'confirmed');
       
       Alert.alert(
         'Transfer Successful!',
-        `Sent ${amount} SOL to ${recipientAddress.slice(0, 8)}...${recipientAddress.slice(-8)}\n\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}`,
-        [{ text: 'OK', onPress: () => router.back() }]
+        `Sent ${amount} SOL to ${recipientAddress.slice(0, 8)}...${recipientAddress.slice(-8)}\n\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}\n\nView on Solscan: https://solscan.io/tx/${signature}`,
+        [
+          { text: 'OK', onPress: () => router.back() },
+          { 
+            text: 'View Transaction', 
+            onPress: () => {
+              console.log('Open transaction:', `https://solscan.io/tx/${signature}`);
+            }
+          }
+        ]
       );
     } catch (error) {
       console.error('Transfer error:', error);
-      Alert.alert('Error', 'Transfer failed. Please try again.');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Transfer failed. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -49,11 +49,26 @@ export class Token2022Service {
     try {
       console.log('Creating Token-2022 mint with Transfer Hook:', { decimals, supply, transferHookConfig });
       
+      // Check wallet balance first
+      const balance = await this.connection.getBalance(payer.publicKey);
+      const mintRent = await getMinimumBalanceForRentExemptMint(this.connection);
+      const estimatedFee = 5000; // Estimated transaction fee in lamports
+      const totalRequired = mintRent + estimatedFee;
+      
+      console.log('Balance check:', {
+        currentBalance: balance,
+        mintRent: mintRent,
+        estimatedFee: estimatedFee,
+        totalRequired: totalRequired,
+        hasEnoughBalance: balance >= totalRequired
+      });
+      
+      if (balance < totalRequired) {
+        throw new Error(`Insufficient SOL balance. Required: ${totalRequired / 1e9} SOL, Available: ${balance / 1e9} SOL. Please request an airdrop first.`);
+      }
+      
       // Generate mint keypair
       const mint = Keypair.generate();
-      
-      // Get minimum rent for mint account
-      const mintRent = await getMinimumBalanceForRentExemptMint(this.connection);
       
       // Create mint account instruction
       const createMintAccountInstruction = SystemProgram.createAccount({

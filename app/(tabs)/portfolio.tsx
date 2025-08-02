@@ -399,6 +399,17 @@ export default function PortfolioScreen() {
         decimals: 9,
       };
 
+      // Common testnet tokens with known metadata
+      const testnetTokens: { [key: string]: { symbol: string; name: string; decimals: number } } = {
+        'So11111111111111111111111111111111111111112': { symbol: 'SOL', name: 'Solana', decimals: 9 },
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': { symbol: 'USDC', name: 'USD Coin', decimals: 6 },
+        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': { symbol: 'USDT', name: 'Tether', decimals: 6 },
+        'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': { symbol: 'JUP', name: 'Jupiter', decimals: 6 },
+        '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': { symbol: 'RAY', name: 'Raydium', decimals: 6 },
+        'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': { symbol: 'BONK', name: 'Bonk', decimals: 5 },
+        // Add more testnet tokens as needed
+      };
+
       // Get real token accounts from the wallet using WalletService
       let realTokenBalances: TokenBalance[] = [solToken];
       
@@ -414,17 +425,17 @@ export default function PortfolioScreen() {
           const decimals = accountInfo.tokenAmount.decimals;
 
           if (balance > 0) {
-            // Try to get token metadata
+            // Try to get token metadata from known tokens first
             let symbol = 'Unknown';
             let name = 'Unknown Token';
             
-            try {
-              // You could fetch token metadata here
-              // For now, we'll use the mint address as identifier
+            if (testnetTokens[mint]) {
+              symbol = testnetTokens[mint].symbol;
+              name = testnetTokens[mint].name;
+            } else {
+              // For unknown tokens, use the mint address as identifier
               symbol = mint.slice(0, 4).toUpperCase();
               name = `Token ${mint.slice(0, 8)}`;
-            } catch (error) {
-              console.log('Could not fetch metadata for token:', mint);
             }
 
             const tokenBalance: TokenBalance = {

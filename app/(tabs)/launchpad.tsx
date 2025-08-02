@@ -82,6 +82,13 @@ export default function LaunchpadScreen() {
     setError(null);
 
     try {
+      // Show signing prompt
+      Alert.alert(
+        'Sign Transaction',
+        'Please sign the token creation transaction in your wallet to proceed.',
+        [{ text: 'OK' }]
+      );
+
       // Prepare Transfer Hook configuration
       let transferHookConfig = undefined;
       if (enableTransferHook && transferHookProgramId && transferHookAuthority) {
@@ -128,6 +135,13 @@ export default function LaunchpadScreen() {
 
       console.log('Token launch result:', result);
 
+      // Show confirmation message
+      Alert.alert(
+        'Transaction Submitted',
+        'Your token creation transaction has been submitted. Waiting for confirmation...',
+        [{ text: 'OK' }]
+      );
+
       // Generate mock data for display
       const mockMint = result.mint?.toString() || 'MockMintAddress123456789';
       const mockSignature = result.signature || 'MockSignature123456789';
@@ -172,7 +186,58 @@ export default function LaunchpadScreen() {
 
     } catch (error) {
       console.error('Error launching token:', error);
-      setError(`Failed to launch token: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Check if it's a balance error and offer fallback
+      if (error instanceof Error && error.message.includes('Insufficient SOL balance')) {
+        Alert.alert(
+          'Insufficient Balance',
+          'You need SOL to create tokens. Would you like to see a demo with mock data instead?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Show Demo', 
+              onPress: () => {
+                // Generate mock data for demo
+                const mockMint = generateSolanaAddress();
+                const mockSignature = generateSolanaAddress();
+                
+                setPresaleInfo({
+                  mint: mockMint,
+                  signature: mockSignature,
+                  name: tokenName,
+                  symbol: tokenSymbol,
+                  description: tokenDescription,
+                  decimals: parseInt(decimals),
+                  totalSupply: parseInt(totalSupply),
+                  website: website || undefined,
+                  twitter: twitter || undefined,
+                  telegram: telegram || undefined,
+                  hasTransferHook: enableTransferHook,
+                  transferHookProgramId: transferHookProgramId || undefined,
+                });
+                
+                setSuccess('Demo token created! This is mock data for demonstration purposes.');
+                
+                // Clear form
+                setTokenName('');
+                setTokenSymbol('');
+                setTokenDescription('');
+                setDecimals('6');
+                setTotalSupply('1000000');
+                setWebsite('');
+                setTwitter('');
+                setTelegram('');
+                setEnableTransferHook(false);
+                setTransferHookProgramId('');
+                setTransferHookAuthority('');
+                setTransferHookData('');
+              }
+            }
+          ]
+        );
+      } else {
+        setError(`Failed to launch token: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -188,7 +253,7 @@ export default function LaunchpadScreen() {
   };
 
   const viewOnExplorer = (signature: string) => {
-    const url = `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
+    const url = `https://explorer.solana.com/tx/${signature}?cluster=testnet`;
     Linking.openURL(url).catch(() => {
       Alert.alert('Error', 'Could not open explorer');
     });
@@ -214,6 +279,38 @@ export default function LaunchpadScreen() {
             Create your Token-2022 project
           </AppText>
         </View>
+
+        {/* Balance Check Section */}
+        {walletInfo && (
+          <View style={[styles.balanceCard, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.balanceHeader}>
+              <Ionicons name="wallet" size={20} color={theme.colors.primary} />
+              <AppText style={[styles.balanceTitle, { color: theme.colors.text }]}>Wallet Balance</AppText>
+            </View>
+            <AppText style={[styles.balanceAmount, { color: theme.colors.primary }]}>
+              {walletInfo.balance.toFixed(4)} SOL
+            </AppText>
+            <AppText style={[styles.balanceNote, { color: theme.colors.muted }]}>
+              You need at least 0.01 SOL to create tokens
+            </AppText>
+            {walletInfo.balance < 0.01 && (
+              <TouchableOpacity 
+                style={[styles.airdropButton, { backgroundColor: theme.colors.primary }]}
+                onPress={async () => {
+                  try {
+                    await requestAirdrop(2);
+                    Alert.alert('Success', 'Airdrop received! You can now create tokens.');
+                  } catch (error) {
+                    Alert.alert('Error', 'Failed to request airdrop. Please try again.');
+                  }
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={16} color="#000000" />
+                <AppText style={[styles.airdropText, { color: '#000000' }]}>Request Airdrop</AppText>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Token Creation Form */}
         <View style={[styles.formContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
@@ -682,6 +779,47 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 14,
     fontFamily: 'SpaceGrotesk-Bold',
+    marginLeft: 6,
+  },
+  // Balance card styles
+  balanceCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  balanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  balanceTitle: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk-SemiBold',
+    marginLeft: 8,
+  },
+  balanceAmount: {
+    fontSize: 24,
+    fontFamily: 'SpaceGrotesk-Bold',
+    marginBottom: 4,
+  },
+  balanceNote: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk-Regular',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  airdropButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  airdropText: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-SemiBold',
     marginLeft: 6,
   },
 }); 

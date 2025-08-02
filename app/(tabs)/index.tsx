@@ -7,12 +7,11 @@ import { useNotifications } from '@/src/context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function HomeScreen() {
@@ -181,25 +180,7 @@ export default function HomeScreen() {
                   {walletInfo.balance.toFixed(4)} SOL
                 </AppText>
               </View>
-              <View style={styles.walletActions}>
-                <Pressable 
-                  style={[styles.airdropButton, { backgroundColor: theme.colors.primary }]}
-                  onPress={handleRequestAirdrop}
-                  android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: false }}
-                >
-                  <Ionicons name="add-circle-outline" size={16} color="#000" />
-                  <AppText style={[styles.airdropText, { color: '#000' }]}>Request Airdrop</AppText>
-                </Pressable>
-                
-                <Pressable 
-                  style={[styles.sampleButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
-                  onPress={addSampleNotifications}
-                  android_ripple={{ color: 'rgba(99, 102, 241, 0.1)', borderless: false }}
-                >
-                  <Ionicons name="notifications" size={16} color={theme.colors.primary} />
-                  <AppText style={[styles.sampleText, { color: theme.colors.primary }]}>Add Sample</AppText>
-                </Pressable>
-              </View>
+
             </View>
           )}
         </View>

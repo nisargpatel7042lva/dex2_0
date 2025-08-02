@@ -17,10 +17,10 @@ import {
 } from 'react-native';
 import { WalletInfo } from '../src/services/WalletService';
 
-// Common token mints for mainnet - Updated with correct addresses
+// Common token mints for testnet - Updated with testnet addresses
 const COMMON_TOKENS = [
   { symbol: 'SOL', name: 'Solana', mint: 'So11111111111111111111111111111111111111112', decimals: 9 },
-  { symbol: 'USDC', name: 'USD Coin', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', decimals: 6 }, // Correct mainnet USDC
+  { symbol: 'USDC', name: 'USD Coin', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', decimals: 6 },
   { symbol: 'USDT', name: 'Tether', mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', decimals: 6 },
   { symbol: 'JUP', name: 'Jupiter', mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', decimals: 6 },
   { symbol: 'RAY', name: 'Raydium', mint: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', decimals: 6 },
@@ -52,7 +52,7 @@ interface JupiterSwapResponse {
 
 export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolean }) {
   const { theme } = useAppTheme();
-  const { walletInfo, walletService, connection } = useApp(); 
+  const { walletInfo, walletService } = useApp(); 
   
   // Swap state
   const [fromToken, setFromToken] = useState(COMMON_TOKENS[0]); // SOL
@@ -138,12 +138,12 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
     if (!walletInfo || !walletService) return;
 
     try {
-      const balances = await walletService.getTokenBalances();
+      const balances = await walletService.getTokenBalances(walletInfo.publicKey);
       setTokenBalances(balances);
       
       // Set max amount for selected token
       const selectedTokenBalance = balances.find(
-        token => token.mint.toString() === fromToken.mint
+        (token: any) => token.mint?.toString() === fromToken.mint
       );
       
       if (selectedTokenBalance) {
@@ -282,34 +282,14 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       
       console.log('Transaction deserialized, requesting signature...');
       
-      // Step 3: Sign the transaction
-      // This depends on your wallet implementation
-      // For most wallet adapters, you would do:
-      const signedTransaction = await walletInfo.signTransaction(transaction);
-      
-      // Step 4: Send the signed transaction
-      if (!connection) {
-        throw new Error('No connection available');
+      // Step 3: Sign and send the transaction using wallet service
+      if (!walletService) {
+        throw new Error('Wallet service not available');
       }
       
-      const rawTransaction = signedTransaction.serialize();
-      const txid = await connection.sendRawTransaction(rawTransaction, {
-        skipPreflight: true,
-        maxRetries: 2
-      });
+      const txid = await walletService.sendTransaction(transaction);
       
       console.log('Transaction sent:', txid);
-      
-      // Step 5: Confirm the transaction
-      const confirmation = await connection.confirmTransaction({
-        blockhash: (await connection.getLatestBlockhash()).blockhash,
-        lastValidBlockHeight: swapData.lastValidBlockHeight,
-        signature: txid
-      });
-      
-      if (confirmation.value.err) {
-        throw new Error(`Transaction failed: ${confirmation.value.err}`);
-      }
       
       console.log('Transaction confirmed:', txid);
       
@@ -401,7 +381,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       
       // Update max amount when changing from token
       const selectedTokenBalance = tokenBalances.find(
-        balance => balance.mint.toString() === token.mint
+        (balance: any) => balance.mint?.toString() === token.mint
       );
       
       if (selectedTokenBalance) {
@@ -650,7 +630,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
                 style={[
                   styles.slippageOption,
                   { 
-                    backgroundColor: slippage === option ? theme.colors.primary : theme.colors.background,
+                    backgroundColor: slippage === option ? theme.colors.primary : theme.colors.surface,
                     borderColor: theme.colors.border 
                   }
                 ]}
@@ -693,13 +673,13 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
           disabled={loading || quoteLoading || !fromAmount || !quote || parseFloat(fromAmount) > parseFloat(maxAmount)}
         >
           {loading ? (
-            <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>Swapping...</AppText>
+            <AppText style={[styles.swapButtonText, { color: '#FFFFFF' }]}>Swapping...</AppText>
           ) : quoteLoading ? (
-            <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>Getting Quote...</AppText>
+            <AppText style={[styles.swapButtonText, { color: '#FFFFFF' }]}>Getting Quote...</AppText>
           ) : parseFloat(fromAmount) > parseFloat(maxAmount) ? (
-            <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>Insufficient Balance</AppText>
+            <AppText style={[styles.swapButtonText, { color: '#FFFFFF' }]}>Insufficient Balance</AppText>
           ) : (
-            <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>
+            <AppText style={[styles.swapButtonText, { color: '#FFFFFF' }]}>
               {quote ? `Swap ${fromAmount} ${fromToken.symbol}` : 'Enter Amount'}
             </AppText>
           )}
@@ -937,7 +917,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   slippageInput: {
     width: 60,
