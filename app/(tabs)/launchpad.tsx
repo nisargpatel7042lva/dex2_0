@@ -280,37 +280,7 @@ export default function LaunchpadScreen() {
           </AppText>
         </View>
 
-        {/* Balance Check Section */}
-        {walletInfo && (
-          <View style={[styles.balanceCard, { backgroundColor: theme.colors.card }]}>
-            <View style={styles.balanceHeader}>
-              <Ionicons name="wallet" size={20} color={theme.colors.primary} />
-              <AppText style={[styles.balanceTitle, { color: theme.colors.text }]}>Wallet Balance</AppText>
-            </View>
-            <AppText style={[styles.balanceAmount, { color: theme.colors.primary }]}>
-              {walletInfo.balance.toFixed(4)} SOL
-            </AppText>
-            <AppText style={[styles.balanceNote, { color: theme.colors.muted }]}>
-              You need at least 0.01 SOL to create tokens
-            </AppText>
-            {walletInfo.balance < 0.01 && (
-              <TouchableOpacity 
-                style={[styles.airdropButton, { backgroundColor: theme.colors.primary }]}
-                onPress={async () => {
-                  try {
-                    await requestAirdrop(2);
-                    Alert.alert('Success', 'Airdrop received! You can now create tokens.');
-                  } catch (error) {
-                    Alert.alert('Error', 'Failed to request airdrop. Please try again.');
-                  }
-                }}
-              >
-                <Ionicons name="add-circle-outline" size={16} color="#000000" />
-                <AppText style={[styles.airdropText, { color: '#000000' }]}>Request Airdrop</AppText>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+
 
         {/* Token Creation Form */}
         <View style={[styles.formContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
@@ -574,7 +544,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     paddingTop: 60, // Add proper top padding
-    paddingBottom: 100, // Add bottom padding to clear the navbar
+    paddingBottom: 160, // Increased bottom padding to clear the floating navbar
   },
   header: {
     marginBottom: 24,
@@ -779,47 +749,6 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 14,
     fontFamily: 'SpaceGrotesk-Bold',
-    marginLeft: 6,
-  },
-  // Balance card styles
-  balanceCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  balanceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  balanceTitle: {
-    fontSize: 16,
-    fontFamily: 'SpaceGrotesk-SemiBold',
-    marginLeft: 8,
-  },
-  balanceAmount: {
-    fontSize: 24,
-    fontFamily: 'SpaceGrotesk-Bold',
-    marginBottom: 4,
-  },
-  balanceNote: {
-    fontSize: 12,
-    fontFamily: 'SpaceGrotesk-Regular',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  airdropButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  airdropText: {
-    fontSize: 14,
-    fontFamily: 'SpaceGrotesk-SemiBold',
     marginLeft: 6,
   },
 }); 

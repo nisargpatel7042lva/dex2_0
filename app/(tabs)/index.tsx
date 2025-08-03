@@ -349,12 +349,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 150, // Increased bottom padding to clear the navbar
   },
   header: {
     paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 32, // Increased bottom padding to prevent text cutting
   },
   headerTop: {
     flexDirection: 'row',

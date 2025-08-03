@@ -680,11 +680,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Add bottom padding to clear the navbar
+    paddingBottom: 150, // Increased bottom padding to clear the navbar
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingVertical: 32, // Increased vertical padding to prevent text cutting
+    paddingTop: 40, // Extra top padding for status bar
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

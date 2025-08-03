@@ -6,14 +6,14 @@ import { VersionedTransaction } from '@solana/web3.js';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  FlatList,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    FlatList,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { WalletInfo } from '../src/services/WalletService';
 
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 150, // Increased bottom padding to clear the navbar
   },
   walletCard: {
     padding: 16,

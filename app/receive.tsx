@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 150, // Increased bottom padding to clear the navbar
   },
   centerContent: {
     flex: 1,

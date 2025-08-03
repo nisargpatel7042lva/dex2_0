@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TokenCard from '../components/TokenCard';
@@ -194,7 +194,8 @@ const styles = StyleSheet.create({
   },
   searchHeader: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 24, // Increased vertical padding to prevent text cutting
+    paddingTop: 40, // Extra top padding for status bar
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
