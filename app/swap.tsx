@@ -6,14 +6,14 @@ import { VersionedTransaction } from '@solana/web3.js';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { WalletInfo } from '../src/services/WalletService';
 
@@ -545,7 +545,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
             style={[styles.swapArrow, { backgroundColor: theme.colors.primary }]}
             onPress={swapTokens}
           >
-            <Ionicons name="swap-vertical" size={20} color="#FFFFFF" />
+            <Ionicons name="swap-vertical" size={20} color={theme.colors.background} />
           </TouchableOpacity>
         </View>
 
@@ -638,7 +638,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
               >
                 <AppText style={[
                   styles.slippageText,
-                  { color: slippage === option ? '#FFFFFF' : theme.colors.text }
+                  { color: slippage === option ? theme.colors.background : theme.colors.text }
                 ]}>
                   {option}%
                 </AppText>
@@ -673,13 +673,13 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
           disabled={loading || quoteLoading || !fromAmount || !quote || parseFloat(fromAmount) > parseFloat(maxAmount)}
         >
           {loading ? (
-            <AppText style={[styles.swapButtonText, { color: '#FFFFFF' }]}>Swapping...</AppText>
+            <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>Swapping...</AppText>
           ) : quoteLoading ? (
-            <AppText style={[styles.swapButtonText, { color: '#FFFFFF' }]}>Getting Quote...</AppText>
+            <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>Getting Quote...</AppText>
           ) : parseFloat(fromAmount) > parseFloat(maxAmount) ? (
-            <AppText style={[styles.swapButtonText, { color: '#FFFFFF' }]}>Insufficient Balance</AppText>
+            <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>Insufficient Balance</AppText>
           ) : (
-            <AppText style={[styles.swapButtonText, { color: '#FFFFFF' }]}>
+            <AppText style={[styles.swapButtonText, { color: theme.colors.background }]}>
               {quote ? `Swap ${fromAmount} ${fromToken.symbol}` : 'Enter Amount'}
             </AppText>
           )}
@@ -999,7 +999,7 @@ const styles = StyleSheet.create({
   tokenSelectorIconText: {
     fontSize: 14,
     fontFamily: 'SpaceGrotesk-Bold',
-    color: '#FFFFFF',
+    color: '#000000',
   },
   tokenSelectorSymbol: {
     fontSize: 16,
