@@ -1,5 +1,9 @@
 # DEX Screener - Token-2022 Analytics & Trading Platform
 
+<div align="center">
+  <img src="assets/images/icon.png" alt="DEX Screener App Icon" width="200" height="200">
+</div>
+
 A modern mobile application built with React Native and Expo that provides real-time analytics and trading capabilities for Token-2022 tokens on the Solana blockchain.
 
 ## 🚀 Features

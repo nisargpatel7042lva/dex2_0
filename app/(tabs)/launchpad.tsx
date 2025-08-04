@@ -419,7 +419,7 @@ export default function LaunchpadScreen() {
             onPress={handleLaunchToken}
             disabled={loading}
           >
-            <AppText style={[styles.createButtonText, { color: '#000' }]}>
+            <AppText style={[styles.createButtonText, { color: '#000000' }]}>
               {loading ? 'Creating Token...' : 'Launch Token'}
             </AppText>
           </TouchableOpacity>
