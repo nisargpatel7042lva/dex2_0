@@ -24,7 +24,8 @@ export function AccountFeatureReceive({ address }: { address: PublicKey | undefi
         <Button onPressIn={() => Clipboard.setString(address.toString())}>Copy Address</Button>
 
   
-        <AppQrCode value={address.toString()}/>
+        <AppQrCode value={address.toString()} style={{ width: 200, height: 200 }} />
+
       </AppView>
     </AppView>
   )
