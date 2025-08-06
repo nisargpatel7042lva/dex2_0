@@ -1,22 +1,23 @@
+import { useCluster } from '@/components/cluster/cluster-provider'
+import { AppConfig } from '@/constants/app-config'
+import { safeFirst, WalletConnectionDebugger } from '@/src/utils/wallet-debug'
+import { ellipsify } from '@/utils/ellipsify'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { PublicKey, PublicKeyInitData } from '@solana/web3.js'
 import {
-  Account as AuthorizedAccount,
   AppIdentity,
   AuthorizationResult,
   AuthorizeAPI,
+  Account as AuthorizedAccount,
   AuthToken,
   Base64EncodedAddress,
   DeauthorizeAPI,
   SignInPayload,
 } from '@solana-mobile/mobile-wallet-adapter-protocol'
-import { toUint8Array } from 'js-base64'
+import { PublicKey, PublicKeyInitData } from '@solana/web3.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useMemo } from 'react'
-import { useCluster } from '@/components/cluster/cluster-provider'
 import { WalletIcon } from '@wallet-standard/core'
-import { ellipsify } from '@/utils/ellipsify'
-import { AppConfig } from '@/constants/app-config'
+import { toUint8Array } from 'js-base64'
+import { useCallback, useMemo } from 'react'
 
 const identity: AppIdentity = { name: AppConfig.name, uri: AppConfig.uri }
 
@@ -50,6 +51,17 @@ function getAuthorizationFromAuthorizationResult(
   authorizationResult: AuthorizationResult,
   previouslySelectedAccount?: Account,
 ): WalletAuthorization {
+  // Debug logging
+  WalletConnectionDebugger.setConnectionStep('processing_authorization_result');
+  WalletConnectionDebugger.setAccountsInfo(authorizationResult.accounts);
+
+  // Validate that we have accounts to work with
+  if (!authorizationResult.accounts || authorizationResult.accounts.length === 0) {
+    const error = 'No accounts available from wallet authorization';
+    WalletConnectionDebugger.setError(error);
+    throw new Error(error);
+  }
+
   let selectedAccount: Account
   if (
     // We have yet to select an account.
@@ -57,11 +69,20 @@ function getAuthorizationFromAuthorizationResult(
     // The previously selected account is no longer in the set of authorized addresses.
     !authorizationResult.accounts.some(({ address }) => address === previouslySelectedAccount.address)
   ) {
-    const firstAccount = authorizationResult.accounts[0]
-    selectedAccount = getAccountFromAuthorizedAccount(firstAccount)
+    // Safely get the first account with bounds checking
+    try {
+      const firstAccount = safeFirst(authorizationResult.accounts, 'No valid first account found in authorization result');
+      selectedAccount = getAccountFromAuthorizedAccount(firstAccount)
+      WalletConnectionDebugger.setConnectionStep('selected_first_account');
+    } catch (error) {
+      WalletConnectionDebugger.setError(`Failed to select first account: ${error}`);
+      throw error;
+    }
   } else {
     selectedAccount = previouslySelectedAccount
+    WalletConnectionDebugger.setConnectionStep('using_previous_account');
   }
+  
   return {
     accounts: authorizationResult.accounts.map(getAccountFromAuthorizedAccount),
     authToken: authorizationResult.auth_token,
@@ -135,12 +156,21 @@ export function useAuthorization() {
 
   const authorizeSession = useCallback(
     async (wallet: AuthorizeAPI) => {
-      const authorizationResult = await wallet.authorize({
-        identity,
-        chain: selectedCluster.id,
-        auth_token: fetchQuery.data?.authToken,
-      })
-      return (await handleAuthorizationResult(authorizationResult)).selectedAccount
+      try {
+        const authorizationResult = await wallet.authorize({
+          identity,
+          chain: selectedCluster.id,
+          auth_token: fetchQuery.data?.authToken,
+        })
+        return (await handleAuthorizationResult(authorizationResult)).selectedAccount
+      } catch (error) {
+        console.error('Authorization failed:', error)
+        // Re-throw with more context for better debugging
+        if (error instanceof Error) {
+          throw new Error(`Wallet authorization failed: ${error.message}`)
+        }
+        throw new Error('Wallet authorization failed with unknown error')
+      }
     },
     [fetchQuery.data?.authToken, handleAuthorizationResult, selectedCluster.id],
   )

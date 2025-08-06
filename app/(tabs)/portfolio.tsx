@@ -419,10 +419,9 @@ export default function PortfolioScreen() {
 
         // Process each token account
         for (const account of tokenAccounts) {
-          const accountInfo = account.account.data.parsed.info;
-          const mint = accountInfo.mint;
-          const balance = accountInfo.tokenAmount.uiAmount;
-          const decimals = accountInfo.tokenAmount.decimals;
+          const mint = account.mint;
+          const balance = account.balance;
+          const decimals = account.decimals;
 
           if (balance > 0) {
             // Try to get token metadata from known tokens first

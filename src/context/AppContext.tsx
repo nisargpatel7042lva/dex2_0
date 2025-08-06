@@ -60,6 +60,7 @@ export interface AppContextType {
   tokenImageService: TokenImageService | null;
   dexService: any | null; // Add missing dexService
   connectWallet: () => Promise<void>;
+  reconnectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   requestAirdrop: (amount: number) => Promise<void>;
   createToken2022Mint: (decimals: number, supply: number) => Promise<PublicKey>;
@@ -200,6 +201,26 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     } catch (err) {
       console.error('Error connecting wallet:', err);
       setError(`Failed to connect wallet: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reconnectWallet = async () => {
+    if (!walletService) {
+      throw new Error('Wallet service not initialized');
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const info = await walletService.reconnectWallet();
+      setWalletInfo(info);
+    } catch (err) {
+      console.error('Error reconnecting wallet:', err);
+      setError(`Failed to reconnect wallet: ${err instanceof Error ? err.message : 'Unknown error'}`);
       throw err;
     } finally {
       setLoading(false);
@@ -658,6 +679,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     tokenImageService,
     dexService,
     connectWallet,
+    reconnectWallet,
     disconnectWallet,
     requestAirdrop,
     createToken2022Mint,

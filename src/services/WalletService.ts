@@ -1,7 +1,9 @@
+import { NetworkConfig } from '@/constants/network-config';
 import { transact } from '@solana-mobile/mobile-wallet-adapter-protocol-web3js';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Connection, LAMPORTS_PER_SOL, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { toUint8Array } from 'js-base64';
+import { WalletConnectionDebugger, safeFirst } from '../utils/wallet-debug';
 
 export interface WalletInfo {
   publicKey: PublicKey;
@@ -22,22 +24,25 @@ export class WalletService {
   private currentConnectionIndex: number = 0;
   private wallet: AuthorizedAccount | null = null;
   private lastConnectionCheck: number = 0;
-  private readonly CONNECTION_CHECK_INTERVAL = 30000; // 30 seconds
+  private readonly CONNECTION_CHECK_INTERVAL = NetworkConfig.CONNECTION_CHECK_INTERVAL;
 
   constructor() {
     // Multiple RPC endpoints for fallback - using mainnet for Jupiter compatibility
+    // Increased timeouts for better Jupiter swap reliability
     this.connections = [
       new Connection('https://api.mainnet-beta.solana.com', {
         commitment: 'confirmed',
-        confirmTransactionInitialTimeout: 60000,
+        confirmTransactionInitialTimeout: NetworkConfig.RPC_CONNECTION_TIMEOUT,
         disableRetryOnRateLimit: false,
         httpHeaders: {
           'Content-Type': 'application/json',
         },
+        // Add WebSocket endpoint for better performance
+        wsEndpoint: 'wss://api.mainnet-beta.solana.com/',
       }),
       new Connection('https://solana-mainnet.g.alchemy.com/v2/demo', {
         commitment: 'confirmed',
-        confirmTransactionInitialTimeout: 60000,
+        confirmTransactionInitialTimeout: NetworkConfig.RPC_CONNECTION_TIMEOUT,
         disableRetryOnRateLimit: false,
         httpHeaders: {
           'Content-Type': 'application/json',
@@ -45,7 +50,7 @@ export class WalletService {
       }),
       new Connection('https://mainnet.helius-rpc.com/?api-key=demo', {
         commitment: 'confirmed',
-        confirmTransactionInitialTimeout: 60000,
+        confirmTransactionInitialTimeout: NetworkConfig.RPC_CONNECTION_TIMEOUT,
         disableRetryOnRateLimit: false,
         httpHeaders: {
           'Content-Type': 'application/json',
@@ -65,7 +70,7 @@ export class WalletService {
 
   private async retryWithFallback<T>(
     operation: (connection: Connection) => Promise<T>,
-    maxRetries: number = 3
+    maxRetries: number = NetworkConfig.MAX_RETRY_ATTEMPTS
   ): Promise<T> {
     let lastError: Error | null = null;
     
@@ -77,7 +82,7 @@ export class WalletService {
         const result = await Promise.race([
           operation(connection),
           new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Network timeout')), 15000)
+            setTimeout(() => reject(new Error('Network timeout')), NetworkConfig.RPC_NETWORK_TIMEOUT)
           )
         ]);
         
@@ -88,8 +93,8 @@ export class WalletService {
         
         if (attempt < maxRetries - 1) {
           await this.switchToNextConnection();
-          // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          // Increase wait time between retries for complex operations
+          await new Promise(resolve => setTimeout(resolve, NetworkConfig.RPC_RETRY_DELAY_BASE * (attempt + 1)));
         }
       }
     }
@@ -99,6 +104,7 @@ export class WalletService {
 
   async connectWallet(): Promise<WalletInfo> {
     console.log('Connecting to mobile wallet...');
+    WalletConnectionDebugger.setConnectionStep('starting_wallet_connection');
     
     try {
       // Use mobile wallet adapter to connect to real user wallet
@@ -114,12 +120,25 @@ export class WalletService {
         console.log('Auth result received, processing...');
         console.log('Auth result accounts:', authResult.accounts);
         
-        // Get the first account from the authorization result
-        const authorizedAccount = authResult.accounts[0];
+        // Debug logging
+        WalletConnectionDebugger.setConnectionStep('wallet_authorization_complete');
+        WalletConnectionDebugger.setAccountsInfo(authResult.accounts);
+        
+        // Validate that we have accounts available
+        if (!authResult.accounts || authResult.accounts.length === 0) {
+          const error = 'No accounts available from wallet. Please ensure your wallet is unlocked and has accounts.';
+          WalletConnectionDebugger.setError(error);
+          throw new Error(error);
+        }
+        
+        // Get the first account from the authorization result with safe bounds checking
+        const authorizedAccount = safeFirst(authResult.accounts, 'No valid account received from wallet');
         console.log('Authorized account:', authorizedAccount);
         
         if (!authorizedAccount || !authorizedAccount.address) {
-          throw new Error('No valid account received from wallet');
+          const error = 'No valid account received from wallet';
+          WalletConnectionDebugger.setError(error);
+          throw new Error(error);
         }
         
         // Convert the Base64 address to PublicKey using the same method as use-authorization.tsx
@@ -127,6 +146,7 @@ export class WalletService {
         const publicKey = new PublicKey(publicKeyByteArray);
         
         console.log('Converted address to PublicKey:', publicKey.toString());
+        WalletConnectionDebugger.setConnectionStep('address_conversion_complete');
         
         return {
           publicKey,
@@ -142,6 +162,7 @@ export class WalletService {
       const balance = await this.getSOLBalance(account.publicKey);
       
       console.log('Successfully connected to user wallet');
+      WalletConnectionDebugger.setConnectionStep('wallet_connection_successful');
       
       return {
         publicKey: account.publicKey,
@@ -149,7 +170,9 @@ export class WalletService {
         isConnected: true,
       };
     } catch (error) {
-      console.error('Error connecting wallet:', error);
+      const errorMessage = `Error connecting wallet: ${error}`;
+      console.error(errorMessage);
+      WalletConnectionDebugger.setError(errorMessage);
       this.wallet = null;
       throw error;
     }
@@ -301,8 +324,15 @@ export class WalletService {
     try {
       console.log('Sending transaction with auth token...');
       
-      // Proactively ensure wallet is ready for transaction
-      await this.ensureWalletReady();
+      // Check auth token age before proceeding
+      const tokenAge = this.getAuthTokenAge();
+      console.log(`Auth token age: ${tokenAge}ms`);
+      
+      // Only preemptively reconnect if token is very old
+      if (tokenAge > NetworkConfig.AUTH_TOKEN_REFRESH_THRESHOLD * 1.2) { // 20% buffer
+        console.log('Auth token is very old, reconnecting before transaction...');
+        await this.reconnectWallet();
+      }
       
       return await transact(async (wallet) => {
         // For VersionedTransaction, we need to handle it differently
@@ -311,14 +341,20 @@ export class WalletService {
             transactions: [transaction],
             minContextSlot: 0,
           });
-          return signatures[0];
+          if (!signatures || signatures.length === 0) {
+            throw new Error('No signatures returned from wallet for VersionedTransaction');
+          }
+          return safeFirst(signatures, 'No valid signature returned from wallet for VersionedTransaction');
         } else {
           // For regular Transaction
           const signatures = await wallet.signAndSendTransactions({
             transactions: [transaction],
             minContextSlot: 0,
           });
-          return signatures[0];
+          if (!signatures || signatures.length === 0) {
+            throw new Error('No signatures returned from wallet for Transaction');
+          }
+          return safeFirst(signatures, 'No valid signature returned from wallet for Transaction');
         }
       });
     } catch (error: any) {
@@ -423,40 +459,31 @@ export class WalletService {
     return timeSinceLastCheck > 300000;
   }
 
-  // Check if auth token is still valid
+  // Check if auth token is still valid without consuming it
   async validateAuthToken(): Promise<boolean> {
     if (!this.wallet?.authToken) {
       return false;
     }
 
-    try {
-      // Try a simple operation to test if auth token is still valid
-      // We'll use a very lightweight operation that doesn't actually do anything
-      await transact(async (wallet) => {
-        // Just test the connection without doing anything that could fail
-        // If we get here, the auth token is valid
-        return true;
-      });
-      
-      console.log('Auth token validation successful');
-      return true;
-    } catch (error: any) {
-      console.log('Auth token validation failed:', error?.message);
-      
-      // Check for auth-related errors
-      if (error.message?.includes('auth_token not valid') || 
-          error.message?.includes('not valid for signing') ||
-          error.message?.includes('auth_token') ||
-          error.name?.includes('SolanaMobileWalletAdapterProtocolError')) {
-        console.log('Auth token is invalid');
-        return false;
-      }
-      
-      // If it's not an auth error, we'll assume the token is still valid
-      // (could be network error, etc.)
-      console.log('Non-auth error during validation, assuming token is valid');
+    // Instead of calling transact (which consumes auth token usage),
+    // just check if the token is too old or if we've had recent failures
+    const tokenAge = this.getAuthTokenAge();
+    
+    // If token is very fresh (less than 30 seconds), assume it's valid
+    if (tokenAge < 30000) {
+      console.log('Auth token is fresh, assuming valid');
       return true;
     }
+    
+    // If token is getting old but not past threshold, it's probably still valid
+    if (tokenAge < NetworkConfig.AUTH_TOKEN_REFRESH_THRESHOLD) {
+      console.log('Auth token within acceptable age range');
+      return true;
+    }
+    
+    // Token is old, needs refresh
+    console.log('Auth token is old and needs refresh');
+    return false;
   }
 
   // Enhanced method to ensure wallet is ready for transactions
@@ -467,22 +494,18 @@ export class WalletService {
 
     // Get the age of the current auth token
     const tokenAge = this.getAuthTokenAge();
-    const TOKEN_REFRESH_THRESHOLD = 60000; // Refresh if older than 1 minute
     
     console.log(`Auth token age: ${tokenAge}ms`);
     
-    // If token is old or validation fails, reconnect
-    if (tokenAge > TOKEN_REFRESH_THRESHOLD) {
+    // Only reconnect if token is significantly old
+    if (tokenAge > NetworkConfig.AUTH_TOKEN_REFRESH_THRESHOLD) {
       console.log('Auth token is old, refreshing connection...');
       return await this.reconnectWallet();
     }
     
-    // Check if auth token is still valid
-    const isTokenValid = await this.validateAuthToken();
-    if (!isTokenValid) {
-      console.log('Auth token is invalid, reconnecting...');
-      return await this.reconnectWallet();
-    }
+    // Don't validate auth token here - let the actual transaction fail if needed
+    // This prevents premature token consumption
+    console.log('Auth token age is acceptable, proceeding with transaction');
 
     // Return current wallet info if everything is valid
     const balance = await this.getSOLBalance(this.wallet.publicKey);

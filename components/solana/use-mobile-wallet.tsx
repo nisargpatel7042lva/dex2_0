@@ -1,5 +1,6 @@
-import { transact } from '@solana-mobile/mobile-wallet-adapter-protocol-web3js'
+import { safeFirst } from '@/src/utils/wallet-debug'
 import { SignInPayload } from '@solana-mobile/mobile-wallet-adapter-protocol'
+import { transact } from '@solana-mobile/mobile-wallet-adapter-protocol-web3js'
 import { Transaction, TransactionSignature, VersionedTransaction } from '@solana/web3.js'
 import { useCallback, useMemo } from 'react'
 import { Account, useAuthorization } from './use-authorization'
@@ -34,7 +35,10 @@ export function useMobileWallet() {
           transactions: [transaction],
           minContextSlot,
         })
-        return signatures[0]
+        if (!signatures || signatures.length === 0) {
+          throw new Error('No signatures returned from wallet')
+        }
+        return safeFirst(signatures, 'No valid signature returned from wallet')
       })
     },
     [authorizeSession],
@@ -48,7 +52,10 @@ export function useMobileWallet() {
           addresses: [authResult.address],
           payloads: [message],
         })
-        return signedMessages[0]
+        if (!signedMessages || signedMessages.length === 0) {
+          throw new Error('No signed messages returned from wallet')
+        }
+        return safeFirst(signedMessages, 'No valid signed message returned from wallet')
       })
     },
     [authorizeSession],

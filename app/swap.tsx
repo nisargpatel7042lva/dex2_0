@@ -1,5 +1,6 @@
 import { AppText } from '@/components/app-text';
 import { useAppTheme } from '@/components/app-theme';
+import { NetworkConfig } from '@/constants/network-config';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { VersionedTransaction } from '@solana/web3.js';
@@ -73,17 +74,17 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
   const [availableTokens, setAvailableTokens] = useState(COMMON_TOKENS);
   const [showTokenSelector, setShowTokenSelector] = useState(false);
   const [tokenSelectorType, setTokenSelectorType] = useState<'from' | 'to'>('from');
-  const [connectionCheckInterval, setConnectionCheckInterval] = useState<NodeJS.Timeout | null>(null);
+  const [connectionCheckInterval, setConnectionCheckInterval] = useState<number | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Wallet connection validation function
+  // Simplified wallet connection validation
   const validateWalletConnection = useCallback(async (): Promise<boolean> => {
     if (!walletInfo || !walletService) {
       return false;
     }
 
     try {
-      // Use the wallet service's validation method
+      // Only validate network connection, not auth tokens
       return await walletService.validateConnection();
     } catch (error) {
       console.error('Wallet connection validation failed:', error);
@@ -98,14 +99,12 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
 
   const loadJupiterTokens = async () => {
     try {
-      // Fetch tradable tokens from Jupiter
       const response = await fetch('https://token.jup.ag/strict');
       const tokens = await response.json();
       
-      // Filter and format tokens
       const formattedTokens = tokens
-        .filter((token: any) => token.daily_volume > 1000) // Only tokens with decent volume
-        .slice(0, 50) // Increase to top 50 tokens for better selection
+        .filter((token: any) => token.daily_volume > 1000)
+        .slice(0, 50)
         .map((token: any) => ({
           symbol: token.symbol,
           name: token.name,
@@ -113,7 +112,6 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
           decimals: token.decimals,
         }));
       
-      // Combine with common tokens and remove duplicates
       const allTokens = [...COMMON_TOKENS];
       formattedTokens.forEach((token: any) => {
         if (!allTokens.find(t => t.mint === token.mint)) {
@@ -125,26 +123,23 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       console.log('Loaded Jupiter tokens:', allTokens.length);
     } catch (error) {
       console.error('Error loading Jupiter tokens:', error);
-      // Fall back to common tokens if API fails
       setAvailableTokens(COMMON_TOKENS);
     }
   };
 
-  // Connection health monitoring with improved error handling
+  // Simplified connection health monitoring
   useEffect(() => {
     if (walletInfo && walletService) {
-      // Clear any existing interval
       if (connectionCheckInterval) {
         clearInterval(connectionCheckInterval);
       }
 
-      // Set up periodic connection check
       const intervalId = setInterval(async () => {
         try {
           const isValid = await validateWalletConnection();
           if (isValid) {
             console.log('Wallet connection health check: OK');
-            setRetryCount(0); // Reset retry count on successful check
+            setRetryCount(0);
           } else {
             console.warn('Wallet connection health check failed');
             setRetryCount(prev => prev + 1);
@@ -153,18 +148,16 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
           console.warn('Wallet connection health check error:', error);
           setRetryCount(prev => prev + 1);
         }
-      }, 30000); // Check every 30 seconds
+      }, NetworkConfig.CONNECTION_CHECK_INTERVAL);
 
       setConnectionCheckInterval(intervalId);
 
-      // Cleanup function
       return () => {
         if (intervalId) {
           clearInterval(intervalId);
         }
       };
     } else {
-      // Clear interval if wallet is disconnected
       if (connectionCheckInterval) {
         clearInterval(connectionCheckInterval);
         setConnectionCheckInterval(null);
@@ -181,7 +174,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
         setToAmount('');
         setQuote(null);
       }
-    }, 500); // 500ms debounce
+    }, NetworkConfig.QUOTE_DEBOUNCE_DELAY);
 
     return () => clearTimeout(timeoutId);
   }, [fromAmount, fromToken, toToken, slippage]);
@@ -193,39 +186,15 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
     }
   }, [walletInfo, fromToken]);
 
-  // Debug balance changes
-  useEffect(() => {
-    console.log('Balance Debug:', {
-      fromToken: fromToken.symbol,
-      maxAmount,
-      fromAmount,
-      walletBalance: walletInfo?.balance,
-      hasInsufficientBalance: parseFloat(fromAmount || '0') > parseFloat(maxAmount)
-    });
-  }, [fromAmount, maxAmount, fromToken, walletInfo]);
-
   const loadWalletBalances = async () => {
     if (!walletInfo || !walletService) return;
 
     try {
-      // Try to load balances first, validate connection only if that fails
-      let balances;
-      try {
-        balances = await walletService.getTokenBalances(walletInfo.publicKey);
-        console.log('Token balances loaded successfully:', balances.length, 'tokens');
-      } catch (balanceError) {
-        console.warn('Failed to load token balances, checking connection...');
-        
-        // Only validate connection if balance loading fails
-        const isValid = await validateWalletConnection();
-        if (!isValid) {
-          console.warn('Wallet connection invalid, skipping balance load');
-          return;
-        }
-        
-        // Retry balance loading after validation
-        balances = await walletService.getTokenBalances(walletInfo.publicKey);
-      }
+      console.log('Loading wallet balances...');
+      
+      // Just load balances directly - no auth validation
+      const balances = await walletService.getTokenBalances(walletInfo.publicKey);
+      console.log('Token balances loaded successfully:', balances.length, 'tokens');
       
       setTokenBalances(balances);
       
@@ -239,24 +208,23 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
         console.log('Found token balance for', fromToken.symbol, ':', selectedTokenBalance.balance);
       } else if (fromToken.symbol === 'SOL') {
         // For SOL, use wallet balance but reserve some for fees
-        const reserveAmount = 0.005; // Reserve 0.005 SOL for fees (reduced from 0.01)
+        const reserveAmount = 0.005; // Reserve 0.005 SOL for fees
         const availableBalance = Math.max(0, walletInfo.balance - reserveAmount);
-        setMaxAmount(availableBalance.toFixed(9)); // Use 9 decimals for SOL precision
+        setMaxAmount(availableBalance.toFixed(9));
         console.log('Using SOL balance:', availableBalance, 'SOL');
       } else {
         setMaxAmount('0');
         console.log('No balance found for token:', fromToken.symbol);
       }
       
-      console.log('Updated maxAmount:', maxAmount, 'for token:', fromToken.symbol);
     } catch (error) {
       console.error('Error loading wallet balances:', error);
       
-      // If validation fails frequently, prompt for reconnection
-      if (retryCount > 3) {
+      // Only show reconnection prompt if we have many consecutive failures
+      if (retryCount > NetworkConfig.RECONNECTION_RETRY_THRESHOLD) {
         Alert.alert(
           'Connection Issues',
-          'Wallet connection seems unstable. Would you like to reconnect?',
+          'Having trouble loading balances. Would you like to reconnect?',
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Reconnect', onPress: () => handleWalletReconnect() }
@@ -274,14 +242,6 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       
       if (walletService && walletService.reconnectWallet) {
         await walletService.reconnectWallet();
-        
-        // Validate the connection after reconnection
-        const isValid = await validateWalletConnection();
-        if (!isValid) {
-          throw new Error('Wallet connection validation failed after reconnection');
-        }
-        
-        // Reload balances after successful reconnection
         await loadWalletBalances();
         console.log('Wallet reconnected successfully');
         
@@ -290,13 +250,6 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
         }
       } else if (reconnectWallet) {
         await reconnectWallet();
-        
-        // Validate the connection after reconnection
-        const isValid = await validateWalletConnection();
-        if (!isValid) {
-          throw new Error('Wallet connection validation failed after reconnection');
-        }
-        
         await loadWalletBalances();
         console.log('Wallet reconnected successfully via context');
         
@@ -316,7 +269,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
           { text: 'Go to Settings', onPress: () => router.push('/settings') }
         ]
       );
-      throw error; // Re-throw to let caller handle
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -327,7 +280,6 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
     
     setQuoteLoading(true);
     try {
-      // Convert amount to smallest unit based on token decimals
       const amountInSmallestUnit = Math.floor(
         parseFloat(fromAmount) * Math.pow(10, fromToken.decimals)
       );
@@ -340,7 +292,6 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
         slippageBps
       });
       
-      // Build quote request URL with all necessary parameters
       const quoteUrl = new URL(`${JUPITER_API_BASE_URL}/quote`);
       quoteUrl.searchParams.append('inputMint', fromToken.mint);
       quoteUrl.searchParams.append('outputMint', toToken.mint);
@@ -353,19 +304,23 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       
       console.log('Jupiter API URL:', quoteUrl.toString());
       
-      const response = await fetch(quoteUrl.toString(), {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        }
-      });
+      const response = await Promise.race([
+        fetch(quoteUrl.toString(), {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          }
+        }),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Jupiter quote API timeout')), NetworkConfig.JUPITER_QUOTE_TIMEOUT)
+        )
+      ]);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('Jupiter API error response:', errorData);
         
-        // Handle specific errors
         if (errorData.errorCode === 'TOKEN_NOT_TRADABLE') {
           throw new Error(`${fromToken.symbol} or ${toToken.symbol} is not tradable on Jupiter. Please select different tokens.`);
         } else if (errorData.error && errorData.error.includes('No routes found')) {
@@ -376,12 +331,10 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       }
       
       const quoteData: JupiterQuoteResponse = await response.json();
-      
       console.log('Jupiter quote received:', quoteData);
       
       setQuote(quoteData);
       
-      // Convert output amount from smallest unit to readable format
       const outputAmount = parseFloat(quoteData.outAmount) / Math.pow(10, toToken.decimals);
       setToAmount(outputAmount.toFixed(6));
       
@@ -390,7 +343,6 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       setToAmount('');
       setQuote(null);
       
-      // Only show alert for non-network errors
       if (error instanceof Error && !error.message.includes('fetch')) {
         Alert.alert(
           'Quote Error', 
@@ -416,15 +368,6 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
     setLoading(true);
     
     try {
-      // For retry attempts, just ensure wallet service is ready
-      if (retryAttempt) {
-        if (!walletService || !walletInfo) {
-          throw new Error('Wallet service not ready after reconnection');
-        }
-        console.log('Retry attempt: Wallet service and info validated');
-      }
-      
-      // The WalletService.sendTransaction will handle auth validation internally
       console.log('Executing Jupiter swap with quote:', quote);
       
       // Step 1: Get swap transaction from Jupiter API
@@ -432,28 +375,31 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
         quoteResponse: quote,
         userPublicKey: walletInfo.publicKey.toString(),
         wrapAndUnwrapSol: true,
-        // Add priority fee to help with transaction success
         prioritizationFeeLamports: {
           priorityLevelWithMaxLamports: {
             maxLamports: 1000000, // 0.001 SOL max priority fee
             priorityLevel: 'medium'
           }
         },
-        // Additional options for better success rate
         asLegacyTransaction: false,
-        useSharedAccounts: false, // Disabled to support Simple AMMs like TesseraV
+        useSharedAccounts: false,
       };
       
-      console.log('Swap payload:', JSON.stringify(swapPayload, null, 2));
+      console.log('Getting swap transaction from Jupiter...');
       
-      const swapResponse = await fetch(`${JUPITER_API_BASE_URL}/swap`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(swapPayload)
-      });
+      const swapResponse = await Promise.race([
+        fetch(`${JUPITER_API_BASE_URL}/swap`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(swapPayload)
+        }),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Jupiter API timeout')), NetworkConfig.JUPITER_SWAP_TIMEOUT)
+        )
+      ]);
       
       if (!swapResponse.ok) {
         const errorText = await swapResponse.text();
@@ -462,55 +408,52 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       }
       
       const swapData: JupiterSwapResponse = await swapResponse.json();
-      
       console.log('Jupiter swap transaction received');
       
       // Step 2: Deserialize the transaction
       const swapTransactionBuf = Buffer.from(swapData.swapTransaction, 'base64');
       const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
       
-      console.log('Transaction deserialized, requesting signature...');
+      console.log('Transaction deserialized, sending to wallet for signing...');
       
-      // Step 3: Sign and send the transaction using wallet service
+      // Step 3: Send transaction - let WalletService handle all auth logic
       if (!walletService) {
         throw new Error('Wallet service not available');
       }
       
       let txid;
       try {
+        // The WalletService will handle auth token validation and retry logic
         txid = await walletService.sendTransaction(transaction);
+        console.log('Transaction sent successfully:', txid);
       } catch (authError: any) {
-        console.error('Error sending transaction:', authError);
+        console.error('Transaction failed:', authError);
         
         // Handle specific wallet authentication errors
-        if (authError.message === 'WALLET_AUTH_EXPIRED' || 
-            authError.message?.includes('auth_token not valid') || 
-            authError.message?.includes('SolanaMobileWalletAdapterProtocolError') ||
-            authError.message?.includes('not valid for signing')) {
-          console.log('Wallet auth error detected, attempting to reconnect...');
+        if (authError.message === 'WALLET_AUTH_EXPIRED') {
           
           if (!retryAttempt) {
             // Show reconnection dialog and retry
             Alert.alert(
-              'Wallet Connection Expired',
-              'Your wallet session has expired. Reconnecting automatically...',
+              'Wallet Session Expired',
+              'Your wallet session has expired. The app will reconnect and retry the swap.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 { 
                   text: 'Reconnect & Retry', 
                   onPress: async () => {
                     try {
-                      await handleWalletReconnect(false); // Don't show success alert during retry
-                      console.log('Wallet reconnected successfully, retrying transaction...');
+                      console.log('Manual reconnect triggered by user...');
+                      await handleWalletReconnect(false);
+                      console.log('Manual reconnect successful, retrying swap...');
                       
-                      // Wait longer for the wallet to be fully ready
-                      await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+                      // Wait for wallet to stabilize
+                      await new Promise(resolve => setTimeout(resolve, NetworkConfig.WALLET_RECONNECT_WAIT));
                       
-                      // Retry the swap with fresh wallet state
-                      // Don't do additional validation here, let WalletService handle it
+                      // Retry the swap
                       executeJupiterSwap(true);
                     } catch (reconnectError) {
-                      console.error('Auto-reconnection failed:', reconnectError);
+                      console.error('Manual reconnection failed:', reconnectError);
                       Alert.alert('Error', 'Failed to reconnect. Please try disconnecting and reconnecting your wallet manually.');
                     }
                   }
@@ -527,7 +470,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
         throw authError;
       }
       
-      console.log('Transaction sent:', txid);
+      console.log('Swap completed successfully:', txid);
       
       Alert.alert(
         'Swap Successful! 🎉',
@@ -538,7 +481,6 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
             text: 'View on Explorer', 
             onPress: () => {
               console.log('Open transaction:', `https://solscan.io/tx/${txid}`);
-              // You can add URL opening logic here if needed
             }
           }
         ]
@@ -553,31 +495,16 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       // Reload wallet balances after successful swap
       setTimeout(() => {
         loadWalletBalances();
-      }, 2000); // Wait 2 seconds for blockchain confirmation
+      }, NetworkConfig.BALANCE_RELOAD_DELAY);
       
     } catch (error) {
       console.error('Error executing Jupiter swap:', error);
       
       let errorMessage = 'Failed to execute swap. Please try again.';
       
-      // Provide more specific error messages
       if (error instanceof Error) {
-        if (error.message === 'WALLET_CONNECTION_INVALID') {
-          errorMessage = 'Wallet connection is invalid. Please reconnect your wallet.';
-          // Auto-suggest reconnection
-          Alert.alert(
-            'Connection Issue',
-            errorMessage,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Reconnect', onPress: () => handleWalletReconnect() }
-            ]
-          );
-          return;
-        } else if (error.message.includes('auth_token not valid') || 
-                   error.message.includes('not valid for signing') ||
-                   error.message === 'WALLET_AUTH_EXPIRED') {
-          errorMessage = 'Wallet session expired. Please reconnect your wallet.';
+        if (error.message === 'WALLET_AUTH_EXPIRED') {
+          errorMessage = 'Wallet session expired. Please reconnect your wallet and try again.';
         } else if (error.message.includes('Insufficient funds')) {
           errorMessage = 'Insufficient funds for this transaction including network fees.';
         } else if (error.message.includes('Slippage tolerance exceeded')) {
@@ -603,7 +530,6 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       return;
     }
 
-    // Basic checks before proceeding - let WalletService handle auth validation
     if (!walletService) {
       Alert.alert('Error', 'Wallet service not available');
       return;
@@ -620,7 +546,7 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       return;
     }
 
-    // Check if user has sufficient balance with proper precision
+    // Check if user has sufficient balance
     const availableBalance = parseFloat(maxAmount);
     const requestedAmount = parseFloat(fromAmount);
     
@@ -628,7 +554,6 @@ export default function SwapScreen({ hideHeader = false }: { hideHeader?: boolea
       availableBalance,
       fromToken: fromToken.symbol,
       requestedAmount,
-      walletBalance: walletInfo.balance
     });
     
     if (requestedAmount > availableBalance) {
@@ -690,24 +615,19 @@ Network fees will be deducted from your SOL balance.`,
 
   const handleTokenSelect = (token: any, isFrom: boolean) => {
     if (isFrom) {
-      // Prevent selecting the same token as 'to' token
       if (token.mint === toToken.mint) {
-        // Swap the tokens automatically
         setFromToken(token);
         setToToken(fromToken);
       } else {
         setFromToken(token);
       }
       
-      // Clear the amount when changing tokens
       setFromAmount('');
       setToAmount('');
       setQuote(null);
       
     } else {
-      // Prevent selecting the same token as 'from' token
       if (token.mint === fromToken.mint) {
-        // Swap the tokens automatically
         setToToken(token);
         setFromToken(toToken);
         setFromAmount('');
@@ -720,7 +640,6 @@ Network fees will be deducted from your SOL balance.`,
     
     setShowTokenSelector(false);
     
-    // Update max amount for the new from token
     setTimeout(() => {
       loadWalletBalances();
     }, 100);
@@ -734,13 +653,9 @@ Network fees will be deducted from your SOL balance.`,
   const setMaxAmountValue = () => {
     const maxAmountFloat = parseFloat(maxAmount);
     if (maxAmountFloat > 0) {
-      // Use appropriate precision based on token decimals, but limit to reasonable display
       const precision = Math.min(fromToken.decimals || 6, 9);
       let formattedAmount = maxAmountFloat.toFixed(precision);
-      
-      // Remove trailing zeros for better UX
       formattedAmount = parseFloat(formattedAmount).toString();
-      
       setFromAmount(formattedAmount);
     }
   };
@@ -750,7 +665,6 @@ Network fees will be deducted from your SOL balance.`,
       style={[styles.tokenSelectorItem, { backgroundColor: theme.colors.background }]}
       onPress={() => handleTokenSelect(item, tokenSelectorType === 'from')}
       disabled={
-        // Disable if it's the same as the opposite token
         (tokenSelectorType === 'from' && item.mint === toToken.mint) ||
         (tokenSelectorType === 'to' && item.mint === fromToken.mint)
       }
@@ -799,7 +713,6 @@ Network fees will be deducted from your SOL balance.`,
   );
 
   const handleAmountChange = (amount: string, isFrom: boolean) => {
-    // Only allow numbers and single decimal point
     const cleanAmount = amount.replace(/[^0-9.]/g, '');
     const parts = cleanAmount.split('.');
     const formattedAmount = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleanAmount;
@@ -815,12 +728,10 @@ Network fees will be deducted from your SOL balance.`,
     setFromToken(toToken);
     setToToken(tempToken);
     
-    // Clear amounts and quote when swapping
     setFromAmount('');
     setToAmount('');
     setQuote(null);
     
-    // Update max amount for the new from token
     setTimeout(() => {
       loadWalletBalances();
     }, 100);
