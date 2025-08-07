@@ -1,3 +1,4 @@
+import { DecreaseLiquidityParams, IncreaseLiquidityParams, LiquidityPosition, Token2022LiquidityService, Token2022PoolConfig } from '@/src/services/Token2022LiquidityService';
 import { TokenImageService } from '@/src/services/TokenImageService';
 import { TransferHookAMMService } from '@/src/services/TransferHookAMMService';
 import { TransferHookService } from '@/src/services/TransferHookService';
@@ -81,6 +82,13 @@ export interface AppContextType {
   generateAddressQRCode: (address: string) => Promise<string>;
   generateTransactionQRCode: (signature: string) => Promise<string>;
   generateExplorerQRCode: (signature: string, network?: 'mainnet' | 'devnet' | 'testnet') => Promise<string>;
+  // Token-2022 Liquidity functions
+  token2022LiquidityService: Token2022LiquidityService | null;
+  getUserLiquidityPositions: (userPublicKey: PublicKey) => Promise<LiquidityPosition[]>;
+  getToken2022PoolInfo: (poolAddress: PublicKey) => Promise<Token2022PoolConfig | null>;
+  increaseLiquidity: (params: IncreaseLiquidityParams, poolConfig: Token2022PoolConfig) => Promise<string>;
+  decreaseLiquidity: (params: DecreaseLiquidityParams, poolConfig: Token2022PoolConfig) => Promise<string>;
+  calculateOptimalLiquidity: (amount0: string, amount1: string, tickLower: number, tickUpper: number, currentTick: number) => string;
   // AMM functions
   ammService: AMMService | null;
   pools: PoolInfo[];
@@ -112,6 +120,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [servicesInitialized, setServicesInitialized] = useState(false);
   const [walletService, setWalletService] = useState<WalletService | null>(null);
   const [token2022Service, setToken2022Service] = useState<Token2022Service | null>(null);
+  const [token2022LiquidityService, setToken2022LiquidityService] = useState<Token2022LiquidityService | null>(null);
   const [tokenLaunchService, setTokenLaunchService] = useState<TokenLaunchService | null>(null);
   const [jupiterService, setJupiterService] = useState<JupiterService | null>(null);
   const [qrCodeService, setQrCodeService] = useState<QRCodeService | null>(null);
@@ -145,6 +154,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         const token2022Svc = new Token2022Service(connection);
         console.log('✅ Token2022Service created');
         
+        console.log('🔄 Creating Token2022LiquidityService...');
+        const token2022LiquiditySvc = new Token2022LiquidityService(connection);
+        console.log('✅ Token2022LiquidityService created');
+        
         console.log('🔄 Creating TokenLaunchService...');
         const tokenLaunchSvc = new TokenLaunchService(connection);
         console.log('✅ TokenLaunchService created');
@@ -169,6 +182,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         console.log('🔄 Setting services in state...');
         setWalletService(walletSvc);
         setToken2022Service(token2022Svc);
+        setToken2022LiquidityService(token2022LiquiditySvc);
         setTokenLaunchService(tokenLaunchSvc);
         setJupiterService(jupiterSvc);
         setQrCodeService(qrCodeSvc);
@@ -665,6 +679,94 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     return tokenImageService.getTokenColor(symbol);
   };
 
+  // Token2022 Liquidity functions
+  const getUserLiquidityPositions = async (userPubkey: PublicKey): Promise<any[]> => {
+    // TODO: Implement when we have user position tracking
+    // For now return empty array
+    console.log('Getting liquidity positions for user:', userPubkey.toString());
+    return [];
+  };
+
+  const getToken2022PoolInfo = async (poolId: PublicKey): Promise<any> => {
+    if (!token2022LiquidityService) {
+      throw new Error('Token2022LiquidityService not initialized');
+    }
+
+    try {
+      return await token2022LiquidityService.getPoolInfo(poolId);
+    } catch (error) {
+      console.error('Error getting pool info:', error);
+      return null;
+    }
+  };
+
+  const increaseLiquidity = async (
+    params: IncreaseLiquidityParams,
+    poolConfig: Token2022PoolConfig
+  ): Promise<string> => {
+    if (!token2022LiquidityService || !walletService || !walletInfo) {
+      throw new Error('Token2022LiquidityService not initialized or wallet not connected');
+    }
+
+    try {
+      const transaction = await token2022LiquidityService.increaseLiquidity(
+        params,
+        walletInfo.publicKey,
+        poolConfig
+      );
+
+      // Sign and send transaction through wallet service
+      const signature = await walletService.sendTransaction(transaction);
+      return signature || 'Transaction sent successfully';
+    } catch (error) {
+      console.error('Error increasing liquidity:', error);
+      throw error;
+    }
+  };
+
+  const decreaseLiquidity = async (
+    params: DecreaseLiquidityParams,
+    poolConfig: Token2022PoolConfig
+  ): Promise<string> => {
+    if (!token2022LiquidityService || !walletService || !walletInfo) {
+      throw new Error('Token2022LiquidityService not initialized or wallet not connected');
+    }
+
+    try {
+      const transaction = await token2022LiquidityService.decreaseLiquidity(
+        params,
+        walletInfo.publicKey,
+        poolConfig
+      );
+
+      // Sign and send transaction through wallet service
+      const signature = await walletService.sendTransaction(transaction);
+      return signature || 'Transaction sent successfully';
+    } catch (error) {
+      console.error('Error decreasing liquidity:', error);
+      throw error;
+    }
+  };
+
+  const calculateOptimalLiquidity = (
+    amount0: string,
+    amount1: string,
+    tickLower: number,
+    tickUpper: number,
+    currentTick: number
+  ): string => {
+    // Simple calculation - in practice this would be more complex
+    // involving price calculations and tick math
+    const amount0Num = parseFloat(amount0);
+    const amount1Num = parseFloat(amount1);
+    
+    // Mock calculation based on tick range
+    const tickRange = Math.abs(tickUpper - tickLower);
+    const liquidityEstimate = Math.sqrt(amount0Num * amount1Num) * (tickRange / 1000);
+    
+    return liquidityEstimate.toString();
+  };
+
   const contextValue: AppContextType = {
     walletInfo,
     token2022Mints,
@@ -672,6 +774,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     error,
     servicesInitialized,
     token2022Service,
+    token2022LiquidityService,
     tokenLaunchService,
     jupiterService,
     qrCodeService,
@@ -709,6 +812,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     getTokenMetadata,
     getFallbackIcon,
     getTokenColor,
+    getUserLiquidityPositions,
+    getToken2022PoolInfo,
+    increaseLiquidity,
+    decreaseLiquidity,
+    calculateOptimalLiquidity,
   };
   return (
     <AppContext.Provider value={contextValue}>
