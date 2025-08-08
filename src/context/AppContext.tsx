@@ -9,7 +9,10 @@ import { JupiterQuote, JupiterService } from '../services/JupiterService';
 import { QRCodeService } from '../services/QRCodeService';
 import { RaydiumService } from '../services/RaydiumService';
 import { Token2022Service } from '../services/Token2022Service';
+import TokenLaunchDataService, { TokenLaunchData } from '../services/TokenLaunchDataService';
 import { TokenLaunchConfig, TokenLaunchResult, TokenLaunchService } from '../services/TokenLaunchService';
+import TokenPriceService from '../services/TokenPriceService';
+import TransactionService, { TransactionData } from '../services/TransactionService';
 import { WalletInfo, WalletService } from '../services/WalletService';
 
 export interface Token2022Mint {
@@ -61,6 +64,10 @@ export interface AppContextType {
   walletService: WalletService | null;
   tokenImageService: TokenImageService | null;
   dexService: any | null; // Add missing dexService
+  // Real-time data services
+  tokenPriceService: TokenPriceService | null;
+  transactionService: TransactionService | null;
+  tokenLaunchDataService: TokenLaunchDataService | null;
   connectWallet: () => Promise<void>;
   reconnectWallet: () => Promise<void>;
   disconnectWallet: () => void;
@@ -98,6 +105,13 @@ export interface AppContextType {
   getLiquidityQuote: (poolAddress: PublicKey, tokenAAmount: number, tokenBAmount: number) => LiquidityQuote | null;
   executeSwap: (poolAddress: PublicKey, amountIn: number, minAmountOut: number, isTokenAToB: boolean) => Promise<string>;
   addLiquidity: (poolAddress: PublicKey, tokenAAmount: number, tokenBAmount: number, minLpTokens: number) => Promise<string>;
+  // Real-time data functions
+  getRealTimeTokenPrice: (mint: string) => Promise<number>;
+  getRealTimeSOLPrice: () => Promise<number>;
+  convertSOLToUSD: (solAmount: number) => Promise<number>;
+  convertUSDToSOL: (usdAmount: number) => Promise<number>;
+  getRecentTransactions: (limit?: number) => Promise<TransactionData[]>;
+  getRecentTokenLaunches: (limit?: number) => Promise<TokenLaunchData[]>;
   initializePool: (tokenAMint: PublicKey, tokenBMint: PublicKey, feeRate?: number) => Promise<{ pool: PublicKey; signature: string }>;
   loadPools: () => Promise<void>;
   getTokenBalances: () => Promise<any[]>;
@@ -142,6 +156,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [dexService, setDexService] = useState<any | null>(null);
   const [raydiumService, setRaydiumService] = useState<RaydiumService | null>(null);
   const [router, setRouter] = useState<'jupiter' | 'raydium'>('jupiter');
+  // Real-time data services
+  const [tokenPriceService, setTokenPriceService] = useState<TokenPriceService | null>(null);
+  const [transactionService, setTransactionService] = useState<TransactionService | null>(null);
+  const [tokenLaunchDataService, setTokenLaunchDataService] = useState<TokenLaunchDataService | null>(null);
 
   useEffect(() => {
     const initializeServices = async () => {
@@ -195,6 +213,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         const raydiumSvc = new RaydiumService(connection);
         console.log('✅ RaydiumService created');
 
+        console.log('🔄 Creating TokenPriceService...');
+        const tokenPriceSvc = new TokenPriceService();
+        console.log('✅ TokenPriceService created');
+
+        console.log('🔄 Creating TransactionService...');
+        const transactionSvc = new TransactionService(connection);
+        console.log('✅ TransactionService created');
+
+        console.log('🔄 Creating TokenLaunchDataService...');
+        const tokenLaunchDataSvc = new TokenLaunchDataService(connection);
+        console.log('✅ TokenLaunchDataService created');
+
         console.log('🔄 Setting services in state...');
         setWalletService(walletSvc);
         setToken2022Service(token2022Svc);
@@ -205,6 +235,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         setAmmService(ammSvc);
         setTokenImageService(tokenImageSvc);
         setRaydiumService(raydiumSvc);
+        setTokenPriceService(tokenPriceSvc);
+        setTransactionService(transactionSvc);
+        setTokenLaunchDataService(tokenLaunchDataSvc);
         
         console.log('🔄 Setting servicesInitialized to true...');
         setServicesInitialized(true);
@@ -950,6 +983,49 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     return liquidityEstimate.toString();
   };
 
+  // Real-time data functions
+  const getRealTimeTokenPrice = async (mint: string): Promise<number> => {
+    if (!tokenPriceService) {
+      throw new Error('Token price service not initialized');
+    }
+    return await tokenPriceService.getTokenPrice(mint);
+  };
+
+  const getRealTimeSOLPrice = async (): Promise<number> => {
+    if (!tokenPriceService) {
+      throw new Error('Token price service not initialized');
+    }
+    return await tokenPriceService.getSOLPrice();
+  };
+
+  const convertSOLToUSD = async (solAmount: number): Promise<number> => {
+    if (!tokenPriceService) {
+      throw new Error('Token price service not initialized');
+    }
+    return await tokenPriceService.convertSOLToUSD(solAmount);
+  };
+
+  const convertUSDToSOL = async (usdAmount: number): Promise<number> => {
+    if (!tokenPriceService) {
+      throw new Error('Token price service not initialized');
+    }
+    return await tokenPriceService.convertUSDToSOL(usdAmount);
+  };
+
+  const getRecentTransactions = async (limit: number = 20): Promise<TransactionData[]> => {
+    if (!transactionService || !walletInfo) {
+      throw new Error('Transaction service not initialized or wallet not connected');
+    }
+    return await transactionService.getRecentTransactions(walletInfo.publicKey, limit);
+  };
+
+  const getRecentTokenLaunches = async (limit: number = 10): Promise<TokenLaunchData[]> => {
+    if (!tokenLaunchDataService) {
+      throw new Error('Token launch data service not initialized');
+    }
+    return await tokenLaunchDataService.getRecentTokenLaunches(limit);
+  };
+
   const contextValue: AppContextType = {
     walletInfo,
     token2022Mints,
@@ -964,6 +1040,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     walletService,
     tokenImageService,
     dexService,
+    // Real-time data services
+    tokenPriceService,
+    transactionService,
+    tokenLaunchDataService,
     connectWallet,
     reconnectWallet,
     disconnectWallet,
@@ -1007,6 +1087,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     increaseLiquidity,
     decreaseLiquidity,
     calculateOptimalLiquidity,
+    // Real-time data functions
+    getRealTimeTokenPrice,
+    getRealTimeSOLPrice,
+    convertSOLToUSD,
+    convertUSDToSOL,
+    getRecentTransactions,
+    getRecentTokenLaunches,
   };
   return (
     <AppContext.Provider value={contextValue}>

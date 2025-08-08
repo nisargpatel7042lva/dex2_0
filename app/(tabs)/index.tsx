@@ -5,27 +5,240 @@ import { NotificationModal } from '@/components/NotificationModal';
 import { useApp } from '@/src/context/AppContext';
 import { useNotifications } from '@/src/context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
+
+interface TokenBalance {
+  mint: string;
+  symbol: string;
+  name: string;
+  balance: number;
+  value?: number;
+  price?: number;
+  decimals: number;
+}
+
+interface RecentLaunch {
+  id: string;
+  name: string;
+  symbol: string;
+  description: string;
+  launchDate: string;
+  transferHookEnabled: boolean;
+  confidentialTransferEnabled: boolean;
+  volume24h: string;
+  priceChange: string;
+  isPositive: boolean;
+  mint: string;
+}
 
 export default function HomeScreen() {
   const { theme } = useAppTheme();
-  const { walletInfo, requestAirdrop } = useApp();
+  const { 
+    walletInfo, 
+    requestAirdrop, 
+    walletService, 
+    getRealTimeSOLPrice, 
+    getRealTimeTokenPrice, 
+    getRecentTokenLaunches 
+  } = useApp();
   const { addNotification } = useNotifications();
   const [refreshing, setRefreshing] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
+  const [totalBalance, setTotalBalance] = useState(0);
+  const [recentLaunches, setRecentLaunches] = useState<RecentLaunch[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // Load total balance (SOL + all tokens)
+  const loadTotalBalance = async () => {
+    if (!walletInfo || !walletService || isLoadingData) return;
+
+    try {
+      setIsLoadingData(true);
+      console.log('🔄 Loading total balance for wallet:', walletInfo.publicKey.toString());
+      console.log('💰 Current SOL balance:', walletInfo.balance);
+      
+      // Get real-time SOL price
+      const solPrice = await getRealTimeSOLPrice();
+      console.log('📈 SOL price:', solPrice);
+      
+      // Start with SOL balance
+      let total = walletInfo.balance * solPrice;
+      console.log('💵 SOL value:', total);
+
+      // Get all token balances
+      const tokenBalances = await walletService.getTokenBalances(walletInfo.publicKey);
+      console.log('🪙 Token balances found:', tokenBalances.length);
+      
+      // Add token values to total using real-time prices
+      for (let i = 0; i < tokenBalances.length; i++) {
+        const token = tokenBalances[i];
+        if (token.balance > 0) {
+          console.log(`🪙 Processing token ${i + 1}/${tokenBalances.length}: ${token.mint}, balance: ${token.balance}`);
+          try {
+            const realPrice = await getRealTimeTokenPrice(token.mint);
+            const tokenValue = token.balance * realPrice;
+            total += tokenValue;
+            console.log(`✅ Token ${token.mint}: ${token.balance} * $${realPrice} = $${tokenValue}`);
+          } catch (error) {
+            console.warn(`⚠️ Failed to get real price for ${token.mint}, using fallback`);
+            // Fallback to mock price if real price fetch fails
+            const mockPrice = getMockTokenPrice(token.mint);
+            const tokenValue = token.balance * mockPrice;
+            total += tokenValue;
+            console.log(`🔄 Token ${token.mint}: ${token.balance} * $${mockPrice} (fallback) = $${tokenValue}`);
+          }
+          
+          // Add a small delay between requests to avoid rate limiting
+          if (i < tokenBalances.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+          }
+        }
+      }
+
+      console.log('🎯 Total balance calculated:', total);
+      setTotalBalance(total);
+    } catch (error) {
+      console.error('❌ Error loading total balance:', error);
+      // Fallback to mock calculation
+      let total = walletInfo.balance * 177; // Mock SOL price
+      const tokenBalances = await walletService.getTokenBalances(walletInfo.publicKey);
+      
+      for (const token of tokenBalances) {
+        if (token.balance > 0) {
+          const mockPrice = getMockTokenPrice(token.mint);
+          total += token.balance * mockPrice;
+        }
+      }
+      
+      console.log('🔄 Using fallback calculation:', total);
+      setTotalBalance(total);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  // Mock price function - replace with real price API
+  const getMockTokenPrice = (mint: string): number => {
+    const prices: { [key: string]: number } = {
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 1.00, // USDC
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1.00, // USDT
+      'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 0.50, // JUP
+      '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 0.25, // RAY
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 0.00001, // BONK
+    };
+    return prices[mint] || 1.00; // Default to $1 for unknown tokens
+  };
+
+  // Load recent launches from actual data
+  const loadRecentLaunches = async () => {
+    if (isLoadingData) return;
+    
+    try {
+      // Fetch real token launch data from blockchain
+      const realLaunches = await getRecentTokenLaunches(10);
+      
+      // Convert to our interface format
+      const launches: RecentLaunch[] = realLaunches.map((launch, index) => ({
+        id: launch.mint,
+        name: launch.name || `Token-${index + 1}`,
+        symbol: launch.symbol || 'TOKEN',
+        description: `Token with ${launch.decimals} decimals and ${launch.totalSupply.toLocaleString()} total supply`,
+        launchDate: new Date(launch.timestamp).toLocaleDateString(),
+        transferHookEnabled: launch.isToken2022,
+        confidentialTransferEnabled: false, // Would need additional data to determine this
+        volume24h: '$0', // Would need additional API calls to get volume data
+        priceChange: '+0%', // Would need additional API calls to get price change data
+        isPositive: true,
+        mint: launch.mint,
+      }));
+
+      setRecentLaunches(launches);
+    } catch (error) {
+      console.error('Error loading recent launches:', error);
+      // Fallback to mock data
+      const mockLaunches: RecentLaunch[] = [
+        {
+          id: '1',
+          name: 'USDC-2022',
+          symbol: 'USDC',
+          description: 'USD Coin with Transfer Hooks enabled',
+          launchDate: new Date(Date.now() - 86400000).toLocaleDateString(), // 1 day ago
+          transferHookEnabled: true,
+          confidentialTransferEnabled: false,
+          volume24h: '$45.2M',
+          priceChange: '+2.5%',
+          isPositive: true,
+          mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        },
+        {
+          id: '2',
+          name: 'SOL-2022',
+          symbol: 'SOL',
+          description: 'Solana with advanced metadata pointers',
+          launchDate: new Date(Date.now() - 172800000).toLocaleDateString(), // 2 days ago
+          transferHookEnabled: true,
+          confidentialTransferEnabled: true,
+          volume24h: '$23.1M',
+          priceChange: '+5.23%',
+          isPositive: true,
+          mint: 'So11111111111111111111111111111111111111112',
+        },
+        {
+          id: '3',
+          name: 'RAY-2022',
+          symbol: 'RAY',
+          description: 'Raydium with custom transfer logic',
+          launchDate: new Date(Date.now() - 259200000).toLocaleDateString(), // 3 days ago
+          transferHookEnabled: true,
+          confidentialTransferEnabled: false,
+          volume24h: '$8.7M',
+          priceChange: '+12.45%',
+          isPositive: true,
+          mint: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
+        },
+        {
+          id: '4',
+          name: 'JUP-2022',
+          symbol: 'JUP',
+          description: 'Jupiter with enhanced security features',
+          launchDate: new Date(Date.now() - 345600000).toLocaleDateString(), // 4 days ago
+          transferHookEnabled: false,
+          confidentialTransferEnabled: true,
+          volume24h: '$15.3M',
+          priceChange: '-1.2%',
+          isPositive: false,
+          mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+        },
+      ];
+
+      setRecentLaunches(mockLaunches);
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate refresh
-    setTimeout(() => setRefreshing(false), 1000);
+    try {
+      await Promise.all([loadTotalBalance(), loadRecentLaunches()]);
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    }
+    setRefreshing(false);
   };
+
+  // Load data on mount and when wallet changes
+  useEffect(() => {
+    if (walletInfo) {
+      loadTotalBalance();
+      loadRecentLaunches();
+    }
+  }, [walletInfo]);
 
   const handleRequestAirdrop = async () => {
     try {
@@ -37,6 +250,9 @@ export default function HomeScreen() {
         title: 'Airdrop Received!',
         message: 'You have successfully received 2 SOL airdrop to your wallet.',
       });
+
+      // Refresh balance after airdrop
+      await loadTotalBalance();
     } catch (error) {
       console.error('Error requesting airdrop:', error);
       
@@ -70,57 +286,7 @@ export default function HomeScreen() {
     });
   };
 
-  // Mock data for recent Token-2022 launches
-  const recentLaunches = [
-    {
-      id: '1',
-      name: 'USDC-2022',
-      symbol: 'USDC',
-      description: 'USD Coin with Transfer Hooks enabled',
-      launchDate: '2024-01-15',
-      transferHookEnabled: true,
-      confidentialTransferEnabled: false,
-      volume24h: '$45.2M',
-      priceChange: '+2.5%',
-      isPositive: true,
-    },
-    {
-      id: '2',
-      name: 'SOL-2022',
-      symbol: 'SOL',
-      description: 'Solana with advanced metadata pointers',
-      launchDate: '2024-01-14',
-      transferHookEnabled: true,
-      confidentialTransferEnabled: true,
-      volume24h: '$23.1M',
-      priceChange: '+5.23%',
-      isPositive: true,
-    },
-    {
-      id: '3',
-      name: 'RAY-2022',
-      symbol: 'RAY',
-      description: 'Raydium with custom transfer logic',
-      launchDate: '2024-01-13',
-      transferHookEnabled: true,
-      confidentialTransferEnabled: false,
-      volume24h: '$8.7M',
-      priceChange: '+12.45%',
-      isPositive: true,
-    },
-    {
-      id: '4',
-      name: 'SRM-2022',
-      symbol: 'SRM',
-      description: 'Serum with confidential transfers',
-      launchDate: '2024-01-12',
-      transferHookEnabled: false,
-      confidentialTransferEnabled: true,
-      volume24h: '$15.3M',
-      priceChange: '-1.2%',
-      isPositive: false,
-    },
-  ];
+
 
   return (
     <View 
@@ -175,8 +341,24 @@ export default function HomeScreen() {
                 </View>
               </View>
               <View style={styles.walletBalance}>
-                <AppText style={[styles.balanceLabel, { color: theme.colors.muted }]}>Balance</AppText>
+                <View style={styles.balanceHeader}>
+                  <AppText style={[styles.balanceLabel, { color: theme.colors.muted }]}>Total Balance</AppText>
+                  <TouchableOpacity 
+                    onPress={loadTotalBalance}
+                    disabled={isLoadingData}
+                    style={styles.refreshButton}
+                  >
+                    <Ionicons 
+                      name="refresh" 
+                      size={16} 
+                      color={isLoadingData ? theme.colors.muted : theme.colors.primary} 
+                    />
+                  </TouchableOpacity>
+                </View>
                 <AppText style={[styles.balanceAmount, { color: theme.colors.primary }]}>
+                  ${totalBalance.toFixed(2)}
+                </AppText>
+                <AppText style={[styles.solBalance, { color: theme.colors.muted }]}>
                   {walletInfo.balance.toFixed(4)} SOL
                 </AppText>
               </View>
@@ -417,9 +599,23 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     fontFamily: 'SpaceGrotesk-Regular',
   },
+  balanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  refreshButton: {
+    padding: 4,
+  },
   balanceAmount: {
     fontSize: 24,
     fontFamily: 'SpaceGrotesk-Bold',
+  },
+  solBalance: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk-Regular',
+    marginTop: 2,
   },
   walletActions: {
     flexDirection: 'row',

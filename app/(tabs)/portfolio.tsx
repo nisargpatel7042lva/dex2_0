@@ -211,30 +211,19 @@ const PortfolioOverview = ({ totalValue, solBalance }: { totalValue: number; sol
     <View style={styles.portfolioOverview}>
       <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Portfolio Overview</AppText>
       
-      <View style={styles.overviewGrid}>
-        <View style={[styles.overviewCard, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.overviewCardHeader}>
-            <View style={[styles.overviewIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-              <Ionicons name="wallet" size={20} color={theme.colors.primary} />
-            </View>
-            <AppText style={[styles.overviewCardTitle, { color: theme.colors.muted }]}>Total Value</AppText>
+      <View style={styles.overviewCard}>
+        <View style={styles.overviewCardHeader}>
+          <View style={[styles.overviewIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+            <Ionicons name="wallet" size={20} color={theme.colors.primary} />
           </View>
-          <AppText style={[styles.overviewCardValue, { color: theme.colors.text }]}>
-            ${totalValue.toFixed(2)}
-          </AppText>
+          <AppText style={[styles.overviewCardTitle, { color: theme.colors.muted }]}>Total Portfolio Value</AppText>
         </View>
-
-        <View style={[styles.overviewCard, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.overviewCardHeader}>
-            <View style={[styles.overviewIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-              <Ionicons name="logo-bitcoin" size={20} color={theme.colors.success} />
-            </View>
-            <AppText style={[styles.overviewCardTitle, { color: theme.colors.muted }]}>SOL Balance</AppText>
-          </View>
-          <AppText style={[styles.overviewCardValue, { color: theme.colors.text }]}>
-            {solBalance.toFixed(4)} SOL
-          </AppText>
-        </View>
+        <AppText style={[styles.overviewCardValue, { color: theme.colors.text }]}>
+          ${totalValue.toFixed(2)}
+        </AppText>
+        <AppText style={[styles.solBalanceText, { color: theme.colors.muted }]}>
+          {solBalance.toFixed(4)} SOL
+        </AppText>
       </View>
     </View>
   );
@@ -319,7 +308,10 @@ export default function PortfolioScreen() {
   const { 
     walletInfo, 
     requestAirdrop, 
-    walletService 
+    walletService,
+    getRealTimeSOLPrice,
+    getRealTimeTokenPrice,
+    getRecentTransactions
   } = useApp();
   
   const [currentPage, setCurrentPage] = useState<'portfolio' | 'send' | 'receive' | 'swap'>('portfolio');
@@ -327,75 +319,124 @@ export default function PortfolioScreen() {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [totalValue, setTotalValue] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
 
-  // Mock recent transactions data
-  const loadRecentTransactions = () => {
-    const mockTransactions: Transaction[] = [
-      {
-        id: '1',
-        type: 'receive',
-        amount: 2.5,
-        symbol: 'SOL',
-        from: '9tq4KSZrFvXqJpViNNkmyz4L6WkghPiiQxQRH9Vq1u',
-        to: walletInfo?.publicKey.toString() || '',
-        timestamp: new Date(Date.now() - 300000), // 5 minutes ago
-        status: 'confirmed',
-        txHash: '5J7X8K2M9N1P3Q4R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0',
-      },
-      {
-        id: '2',
-        type: 'send',
-        amount: 0.5,
-        symbol: 'SOL',
-        from: walletInfo?.publicKey.toString() || '',
-        to: '7xKX9Y2M8N1P3Q4R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0',
-        timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
-        status: 'confirmed',
-        txHash: '6K8X9Y2M8N1P3Q4R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0',
-      },
-      {
-        id: '3',
-        type: 'swap',
-        amount: 100,
-        symbol: 'USDC',
-        from: walletInfo?.publicKey.toString() || '',
-        to: walletInfo?.publicKey.toString() || '',
-        timestamp: new Date(Date.now() - 3600000), // 1 hour ago
-        status: 'confirmed',
-        txHash: '7L9X0Y3M9N2P4Q5R7S8T9U0V1W2X3Y4Z5A6B7C8D9E0F1G2H3I4J5K6L7M8N9O0P1',
-      },
-      {
-        id: '4',
-        type: 'swap',
-        amount: 50,
-        symbol: 'SOL',
-        from: walletInfo?.publicKey.toString() || '',
-        to: walletInfo?.publicKey.toString() || '',
-        timestamp: new Date(Date.now() - 7200000), // 2 hours ago
-        status: 'confirmed',
-        txHash: '8M0X1Y4M0N3P5Q6R8S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2',
-      },
-    ];
-    setRecentTransactions(mockTransactions);
+  // Load recent transactions from actual data
+  const loadRecentTransactions = async () => {
+    if (!walletInfo || !walletService || isLoadingData) return;
+
+    try {
+      setIsLoadingData(true);
+      // Fetch real transaction data from blockchain
+      const realTransactions = await getRecentTransactions(20);
+      
+      // Convert to our interface format
+      const transactions: Transaction[] = realTransactions.map(tx => ({
+        id: tx.signature,
+        type: tx.type,
+        amount: tx.amount || 0,
+        symbol: tx.tokenSymbol || 'SOL',
+        from: tx.fromAddress,
+        to: tx.toAddress,
+        timestamp: new Date(tx.timestamp),
+        status: tx.status === 'success' ? 'confirmed' : 'failed',
+        txHash: tx.signature,
+        fee: tx.fee / 1e9, // Convert lamports to SOL
+      }));
+
+      setRecentTransactions(transactions);
+    } catch (error) {
+      console.error('Error loading recent transactions:', error);
+      // Fallback to mock data
+      const mockTransactions: Transaction[] = [
+        {
+          id: '1',
+          type: 'receive',
+          amount: 2.5,
+          symbol: 'SOL',
+          from: '9tq4KSZrFvXqJpViNNkmyz4L6WkghPiiQxQRH9Vq1u',
+          to: walletInfo.publicKey.toString(),
+          timestamp: new Date(Date.now() - 300000), // 5 minutes ago
+          status: 'confirmed',
+          txHash: '5J7X8K2M9N1P3Q4R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0',
+          fee: 0.000005,
+        },
+        {
+          id: '2',
+          type: 'send',
+          amount: 0.5,
+          symbol: 'SOL',
+          from: walletInfo.publicKey.toString(),
+          to: '7xKX9Y2M8N1P3Q4R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0',
+          timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
+          status: 'confirmed',
+          txHash: '6K8X9Y2M8N1P3Q4R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0',
+          fee: 0.000005,
+        },
+        {
+          id: '3',
+          type: 'swap',
+          amount: 100,
+          symbol: 'USDC',
+          from: walletInfo.publicKey.toString(),
+          to: walletInfo.publicKey.toString(),
+          timestamp: new Date(Date.now() - 3600000), // 1 hour ago
+          status: 'confirmed',
+          txHash: '7L9X0Y3M9N2P4Q5R7S8T9U0V1W2X3Y4Z5A6B7C8D9E0F1G2H3I4J5K6L7M8N9O0P1',
+          fee: 0.00001,
+        },
+        {
+          id: '4',
+          type: 'mint',
+          amount: 1000000,
+          symbol: 'TEST',
+          from: walletInfo.publicKey.toString(),
+          to: walletInfo.publicKey.toString(),
+          timestamp: new Date(Date.now() - 7200000), // 2 hours ago
+          status: 'confirmed',
+          txHash: '8M0X1Y4M0N3P5Q6R8S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2',
+          fee: 0.001,
+        },
+        {
+          id: '5',
+          type: 'airdrop',
+          amount: 1.0,
+          symbol: 'SOL',
+          from: '11111111111111111111111111111111',
+          to: walletInfo.publicKey.toString(),
+          timestamp: new Date(Date.now() - 86400000), // 1 day ago
+          status: 'confirmed',
+          txHash: '9N1X2Y5M1N4P6Q7R9S0T1U2V3W4X5Y6Z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3',
+          fee: 0,
+        },
+      ];
+      setRecentTransactions(mockTransactions);
+    } finally {
+      setIsLoadingData(false);
+    }
   };
 
   const loadTokenBalances = async () => {
-    if (!walletInfo || !walletService) return;
+    if (!walletInfo || !walletService || isLoadingData) return;
 
     try {
+      setIsLoadingData(true);
       console.log('Loading real token balances for wallet:', walletInfo.publicKey.toString());
+      
+      // Get real-time SOL price
+      const solPrice = await getRealTimeSOLPrice();
       
       // Get real SOL balance
       const solBalance = walletInfo.balance;
       
-      // Create SOL token balance
+      // Create SOL token balance with real-time price
       const solToken: TokenBalance = {
         mint: { toString: () => 'So11111111111111111111111111111111111111112' },
         symbol: 'SOL',
         name: 'Solana',
         balance: solBalance,
-        value: solBalance * 400, // Mock SOL price for demo
-        price: 400.00,
+        value: solBalance * solPrice,
+        price: solPrice,
         decimals: 9,
       };
 
@@ -427,6 +468,7 @@ export default function PortfolioScreen() {
             // Try to get token metadata from known tokens first
             let symbol = 'Unknown';
             let name = 'Unknown Token';
+            let price = 1.00; // Default price
             
             if (testnetTokens[mint]) {
               symbol = testnetTokens[mint].symbol;
@@ -437,13 +479,21 @@ export default function PortfolioScreen() {
               name = `Token ${mint.slice(0, 8)}`;
             }
 
+            // Get real-time price for this token
+            try {
+              price = await getRealTimeTokenPrice(mint);
+            } catch (error) {
+              console.log(`Failed to get real-time price for ${mint}, using default:`, error);
+              price = 1.00; // Default price if real-time fetch fails
+            }
+
             const tokenBalance: TokenBalance = {
               mint: { toString: () => mint },
               symbol,
               name,
               balance,
-              value: balance * 1, // Mock value
-              price: 1.00, // Mock price
+              value: balance * price,
+              price,
               decimals,
             };
 
@@ -462,28 +512,36 @@ export default function PortfolioScreen() {
       // Calculate total value
       const total = realTokenBalances.reduce((sum, token) => sum + (token.value || 0), 0);
       setTotalValue(total);
+      setSolBalance(solBalance);
     } catch (error) {
       console.error('Error loading token balances:', error);
-      // Fallback to just SOL balance
+      // Fallback to just SOL balance with mock price
       const fallbackBalances: TokenBalance[] = [
         {
           mint: { toString: () => 'So11111111111111111111111111111111111111112' },
           symbol: 'SOL',
           name: 'Solana',
           balance: walletInfo?.balance || 0,
-          value: (walletInfo?.balance || 0) * 400,
-          price: 400.00,
+          value: (walletInfo?.balance || 0) * 177, // Mock SOL price
+          price: 177.00,
           decimals: 9,
         },
       ];
       setTokenBalances(fallbackBalances);
-      setTotalValue((walletInfo?.balance || 0) * 400);
+      setTotalValue((walletInfo?.balance || 0) * 177);
+      setSolBalance(walletInfo?.balance || 0);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadTokenBalances(), loadRecentTransactions()]);
+    try {
+      await Promise.all([loadTokenBalances(), loadRecentTransactions()]);
+    } catch (error) {
+      console.error('Error refreshing portfolio:', error);
+    }
     setRefreshing(false);
   };
 
@@ -498,9 +556,11 @@ export default function PortfolioScreen() {
   };
 
   useEffect(() => {
-    loadTokenBalances();
-    loadRecentTransactions();
-  }, [walletInfo]);
+    if (walletInfo && walletService) {
+      loadTokenBalances();
+      loadRecentTransactions();
+    }
+  }, [walletInfo, walletService]);
 
   const renderTokenItem = ({ item }: { item: TokenBalance }) => (
     <PortfolioCard key={item.mint.toString()} token={item} />
@@ -511,69 +571,64 @@ export default function PortfolioScreen() {
   );
 
   // Render different pages based on currentPage state
-  if (currentPage === 'send') {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={[styles.pageHeader, { backgroundColor: theme.colors.background }]}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => setCurrentPage('portfolio')}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <AppText style={[styles.pageTitle, { color: theme.colors.text }]}>Send</AppText>
-          <View style={styles.placeholder} />
-        </View>
-        <View style={styles.pageContent}>
-          <SendScreen hideHeader={true} />
-        </View>
-      </View>
-    );
-  }
-
-  if (currentPage === 'receive') {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={[styles.pageHeader, { backgroundColor: theme.colors.background }]}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => setCurrentPage('portfolio')}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <AppText style={[styles.pageTitle, { color: theme.colors.text }]}>Receive</AppText>
-          <View style={styles.placeholder} />
-        </View>
-        <View style={styles.pageContent}>
-          <ReceiveScreen hideHeader={true} />
-        </View>
-      </View>
-    );
-  }
-
-  if (currentPage === 'swap') {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={[styles.pageHeader, { backgroundColor: theme.colors.background }]}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => setCurrentPage('portfolio')}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <AppText style={[styles.pageTitle, { color: theme.colors.text }]}>Swap</AppText>
-          <View style={styles.placeholder} />
-        </View>
-        <View style={styles.pageContent}>
-          <SwapScreen hideHeader={true} />
-        </View>
-      </View>
-    );
-  }
-
-  // Default portfolio view
   return (
-    <AppView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <>
+      {currentPage === 'send' && (
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.pageHeader, { backgroundColor: theme.colors.background }]}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => setCurrentPage('portfolio')}
+            >
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+            <AppText style={[styles.pageTitle, { color: theme.colors.text }]}>Send</AppText>
+            <View style={styles.placeholder} />
+          </View>
+          <View style={styles.pageContent}>
+            <SendScreen hideHeader={true} />
+          </View>
+        </View>
+      )}
+
+      {currentPage === 'receive' && (
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.pageHeader, { backgroundColor: theme.colors.background }]}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => setCurrentPage('portfolio')}
+            >
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+            <AppText style={[styles.pageTitle, { color: theme.colors.text }]}>Receive</AppText>
+            <View style={styles.placeholder} />
+          </View>
+          <View style={styles.pageContent}>
+            <ReceiveScreen hideHeader={true} />
+          </View>
+        </View>
+      )}
+
+      {currentPage === 'swap' && (
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.pageHeader, { backgroundColor: theme.colors.background }]}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => setCurrentPage('portfolio')}
+            >
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+            <AppText style={[styles.pageTitle, { color: theme.colors.text }]}>Swap</AppText>
+            <View style={styles.placeholder} />
+          </View>
+          <View style={styles.pageContent}>
+            <SwapScreen hideHeader={true} />
+          </View>
+        </View>
+      )}
+
+      {currentPage === 'portfolio' && (
+        <AppView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -667,7 +722,9 @@ export default function PortfolioScreen() {
           )}
         </View>
       </ScrollView>
-    </AppView>
+        </AppView>
+      )}
+    </>
   );
 }
 
@@ -782,12 +839,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingHorizontal: 20,
   },
-  overviewGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+
   overviewCard: {
-    flex: 1,
+    width: '100%',
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
@@ -816,6 +870,11 @@ const styles = StyleSheet.create({
   overviewCardValue: {
     fontSize: 18,
     fontFamily: 'SpaceGrotesk-Bold',
+  },
+  solBalanceText: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
+    marginTop: 4,
   },
   quickActions: {
     marginBottom: 24,

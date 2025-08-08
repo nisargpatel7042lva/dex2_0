@@ -1,6 +1,6 @@
 import { NetworkConfig } from '@/constants/network-config';
 import { transact } from '@solana-mobile/mobile-wallet-adapter-protocol-web3js';
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Connection, LAMPORTS_PER_SOL, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { toUint8Array } from 'js-base64';
 import { WalletConnectionDebugger, safeFirst } from '../utils/wallet-debug';
@@ -395,27 +395,48 @@ export class WalletService {
 
   async getTokenBalances(publicKey: PublicKey): Promise<any[]> {
     try {
-      const tokenAccounts = await this.retryWithFallback(async (connection) => {
-        return await connection.getParsedTokenAccountsByOwner(
-          publicKey,
-          { programId: TOKEN_PROGRAM_ID }
-        );
-      });
+      console.log('🔍 Fetching token balances for:', publicKey.toString());
+      
+      // Fetch both regular SPL tokens and Token-2022 tokens
+      const [splTokenAccounts, token2022Accounts] = await Promise.all([
+        this.retryWithFallback(async (connection) => {
+          return await connection.getParsedTokenAccountsByOwner(
+            publicKey,
+            { programId: TOKEN_PROGRAM_ID }
+          );
+        }),
+        this.retryWithFallback(async (connection) => {
+          return await connection.getParsedTokenAccountsByOwner(
+            publicKey,
+            { programId: TOKEN_2022_PROGRAM_ID }
+          );
+        })
+      ]);
 
-      // Format token balances
-      const formattedBalances = tokenAccounts.value.map((account) => {
+      // Combine and format all token balances
+      const allAccounts = [
+        ...splTokenAccounts.value,
+        ...token2022Accounts.value
+      ];
+
+      console.log(`📊 Found ${splTokenAccounts.value.length} SPL tokens and ${token2022Accounts.value.length} Token-2022 tokens`);
+
+      const formattedBalances = allAccounts.map((account) => {
         const parsedInfo = account.account.data.parsed.info;
+        const balance = parseFloat(parsedInfo.tokenAmount.uiAmount || '0');
         return {
           mint: parsedInfo.mint,
-          balance: parseFloat(parsedInfo.tokenAmount.uiAmount || '0'),
+          balance: balance,
           decimals: parsedInfo.tokenAmount.decimals,
           address: account.pubkey.toString(),
+          programId: account.account.owner.toString(),
         };
-      });
+      }).filter(token => token.balance > 0); // Only include tokens with positive balance
 
+      console.log('💰 Formatted token balances:', formattedBalances);
       return formattedBalances;
     } catch (error) {
-      console.error('Error getting token balances:', error);
+      console.error('❌ Error getting token balances:', error);
       return [];
     }
   }
