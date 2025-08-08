@@ -7,6 +7,7 @@ import React, { createContext, ReactNode, useContext, useEffect, useState } from
 import { AMMService, LiquidityQuote, PoolInfo, SwapQuote } from '../services/AMMService';
 import { JupiterQuote, JupiterService } from '../services/JupiterService';
 import { QRCodeService } from '../services/QRCodeService';
+import { RaydiumService } from '../services/RaydiumService';
 import { Token2022Service } from '../services/Token2022Service';
 import { TokenLaunchConfig, TokenLaunchResult, TokenLaunchService } from '../services/TokenLaunchService';
 import { WalletInfo, WalletService } from '../services/WalletService';
@@ -78,6 +79,7 @@ export interface AppContextType {
   executeJupiterSwap: (quote: JupiterQuote, wrapUnwrapSOL?: boolean) => Promise<string>;
   getSupportedTokens: () => Promise<any[]>;
   getTokenPrice: (mint: string) => Promise<number>;
+  getJupiterTokenMetadata?: (mint: string) => Promise<any>;
   // QR Code functions
   generateAddressQRCode: (address: string) => Promise<string>;
   generateTransactionQRCode: (signature: string) => Promise<string>;
@@ -99,6 +101,14 @@ export interface AppContextType {
   initializePool: (tokenAMint: PublicKey, tokenBMint: PublicKey, feeRate?: number) => Promise<{ pool: PublicKey; signature: string }>;
   loadPools: () => Promise<void>;
   getTokenBalances: () => Promise<any[]>;
+  // Jupiter-driven quoting/execution by pool (real integration)
+  getSwapQuoteAsync?: (poolAddress: PublicKey, amountIn: number, isTokenAToB: boolean) => Promise<SwapQuote | null>;
+  executeSwapOnJupiter?: (poolAddress: PublicKey, amountIn: number, isTokenAToB: boolean, slippageBps?: number) => Promise<string>;
+  // Raydium
+  executeSwapOnRaydium?: (poolAddress: PublicKey, amountIn: number, isTokenAToB: boolean) => Promise<string>;
+  getSwapQuoteOnRaydium?: (poolAddress: PublicKey, amountIn: number, isTokenAToB: boolean) => Promise<SwapQuote | null>;
+  router?: 'jupiter' | 'raydium';
+  setRouter?: (r: 'jupiter' | 'raydium') => void;
   // Token Image functions
   getTokenImageUrl: (address: string) => Promise<string | null>;
   getTokenMetadata: (address: string) => Promise<any | null>;
@@ -130,6 +140,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [transferHookAMMService, setTransferHookAMMService] = useState<TransferHookAMMService | null>(null);
   const [tokenImageService, setTokenImageService] = useState<TokenImageService | null>(null);
   const [dexService, setDexService] = useState<any | null>(null);
+  const [raydiumService, setRaydiumService] = useState<RaydiumService | null>(null);
+  const [router, setRouter] = useState<'jupiter' | 'raydium'>('jupiter');
 
   useEffect(() => {
     const initializeServices = async () => {
@@ -151,7 +163,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         console.log('✅ WalletService created');
         
         console.log('🔄 Creating Token2022Service...');
-        const token2022Svc = new Token2022Service(connection);
+        const token2022Svc = new Token2022Service(connection, walletSvc);
         console.log('✅ Token2022Service created');
         
         console.log('🔄 Creating Token2022LiquidityService...');
@@ -159,7 +171,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         console.log('✅ Token2022LiquidityService created');
         
         console.log('🔄 Creating TokenLaunchService...');
-        const tokenLaunchSvc = new TokenLaunchService(connection);
+        const tokenLaunchSvc = new TokenLaunchService(connection, walletSvc);
         console.log('✅ TokenLaunchService created');
         
         console.log('🔄 Creating JupiterService...');
@@ -179,6 +191,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         const tokenImageSvc = new TokenImageService();
         console.log('✅ TokenImageService created');
 
+        console.log('🔄 Creating RaydiumService...');
+        const raydiumSvc = new RaydiumService(connection);
+        console.log('✅ RaydiumService created');
+
         console.log('🔄 Setting services in state...');
         setWalletService(walletSvc);
         setToken2022Service(token2022Svc);
@@ -188,6 +204,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         setQrCodeService(qrCodeSvc);
         setAmmService(ammSvc);
         setTokenImageService(tokenImageSvc);
+        setRaydiumService(raydiumSvc);
         
         console.log('🔄 Setting servicesInitialized to true...');
         setServicesInitialized(true);
@@ -212,6 +229,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       const info = await walletService.connectWallet();
       setWalletInfo(info);
+      
+      // Ensure the wallet service is properly connected for all dependent services
+      console.log('✅ Wallet connected successfully, wallet service is now ready for transactions');
+      
+      // Log the connection status for debugging
+      console.log('Wallet connection status:', {
+        isConnected: walletService.isWalletConnected(),
+        publicKey: walletService.getPublicKey()?.toString(),
+        authToken: walletService.getAuthToken() ? 'Present' : 'Missing'
+      });
+      
     } catch (err) {
       console.error('Error connecting wallet:', err);
       setError(`Failed to connect wallet: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -266,17 +294,43 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
+  // Helper function to ensure wallet is ready for transactions
+  const ensureWalletReady = async () => {
+    if (!walletService) {
+      throw new Error('Wallet service not initialized');
+    }
+    
+    if (!walletInfo) {
+      throw new Error('No wallet connected. Please connect your wallet first.');
+    }
+    
+    if (!walletService.isWalletConnected()) {
+      throw new Error('Wallet service is not connected. Please connect your wallet first.');
+    }
+    
+    // Try to ensure wallet is ready for transactions
+    try {
+      await walletService.ensureWalletReady();
+    } catch (error) {
+      console.error('Wallet not ready for transactions:', error);
+      throw new Error('Wallet is not ready for transactions. Please try reconnecting your wallet.');
+    }
+  };
+
   const createTokenLaunch = async (config: TokenLaunchConfig): Promise<TokenLaunchResult> => {
-    if (!tokenLaunchService || !walletInfo) {
+    if (!tokenLaunchService || !walletInfo || !walletService) {
       throw new Error('Token launch service not initialized or wallet not connected');
     }
 
+    // Ensure wallet is ready before proceeding
+    await ensureWalletReady();
+
     try {
-      // Create a keypair for the payer (in real app, this would be the user's keypair)
-      const { Keypair } = await import('@solana/web3.js');
-      const payerKeypair = Keypair.generate(); // This should be the user's actual keypair
+      console.log('Creating token launch with wallet:', walletInfo.publicKey.toString());
+      console.log('Wallet service connection status:', walletService.isWalletConnected());
       
-      const result = await tokenLaunchService.createToken(payerKeypair, config);
+      // Use the user's actual wallet for signing
+      const result = await tokenLaunchService.createTokenWithWallet(walletInfo.publicKey, config);
       return result;
     } catch (err) {
       console.error('Error creating token launch:', err);
@@ -313,28 +367,31 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   // Transfer Hook functions
   const createTransferHookToken = async (config: TransferHookTokenConfig): Promise<TransferHookTokenResult> => {
-    if (!token2022Service || !walletInfo) {
+    if (!token2022Service || !walletInfo || !walletService) {
       throw new Error('Token2022 service not initialized or wallet not connected');
     }
 
+    // Ensure wallet is ready before proceeding
+    await ensureWalletReady();
+
     try {
-      const { Keypair } = await import('@solana/web3.js');
-      const payerKeypair = Keypair.generate();
+      console.log('Creating Transfer Hook token with wallet:', walletInfo.publicKey.toString());
+      console.log('Wallet service connection status:', walletService.isWalletConnected());
       
-      // Create mint with Transfer Hook using the service
-      const mint = await token2022Service.initializeMintWithTransferHook(
-        payerKeypair,
+      // Use the user's actual wallet for signing
+      const result = await token2022Service.initializeMintWithTransferHookAndWallet(
+        walletInfo.publicKey,
         config.decimals,
         config.totalSupply,
         {
           programId: new PublicKey('11111111111111111111111111111111'), // Mock hook program
-          authority: payerKeypair.publicKey,
+          authority: walletInfo.publicKey,
         }
       );
       
       return {
-        mint,
-        signature: 'mock_signature_' + Date.now(),
+        mint: result.mint,
+        signature: result.signature,
         hookProgramId: new PublicKey('11111111111111111111111111111111'),
       };
     } catch (err) {
@@ -482,6 +539,132 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Error getting token metadata:', error);
       return null;
+    }
+  };
+
+  // Helper: fetch token decimals via Jupiter token metadata, fallback to 9
+  const getTokenDecimals = async (mint: string): Promise<number> => {
+    try {
+      const meta = await getJupiterTokenMetadata(mint);
+      if (meta && (meta.decimals ?? meta.decimals === 0)) return meta.decimals;
+    } catch {}
+    return 9;
+  };
+
+  // Real quote using Jupiter by pool
+  const getSwapQuoteAsync = async (
+    poolAddress: PublicKey,
+    amountIn: number,
+    isTokenAToB: boolean,
+  ): Promise<SwapQuote | null> => {
+    if (!jupiterService) return null;
+    try {
+      const pool = pools.find((p) => p.pool.equals(poolAddress));
+      if (!pool) return null;
+      const inputMint = (isTokenAToB ? pool.tokenAMint : pool.tokenBMint).toString();
+      const outputMint = (isTokenAToB ? pool.tokenBMint : pool.tokenAMint).toString();
+      const decimals = await getTokenDecimals(inputMint);
+      const rawAmount = Math.max(0, Math.floor(amountIn * Math.pow(10, decimals)));
+      const quote = await jupiterService.getQuote(inputMint, outputMint, String(rawAmount), 50, undefined, true);
+      const outDecimals = await getTokenDecimals(outputMint);
+      const amountOut = Number(quote.outAmount) / Math.pow(10, outDecimals);
+      const priceImpactPct = quote.priceImpactPct ?? 0; // 0.01 => 1%
+      return {
+        amountIn,
+        amountOut,
+        fee: 0, // Jupiter includes fees in route; detailed breakdown requires extra processing
+        priceImpact: Number((priceImpactPct * 100).toFixed(4)),
+        slippage: 0.5,
+      };
+    } catch (error) {
+      console.error('Error getting Jupiter quote by pool:', error);
+      return null;
+    }
+  };
+
+  // Execute swap using Jupiter by pool
+  const executeSwapOnJupiter = async (
+    poolAddress: PublicKey,
+    amountIn: number,
+    isTokenAToB: boolean,
+    slippageBps: number = 50,
+  ): Promise<string> => {
+    if (!jupiterService || !walletInfo || !walletService) {
+      throw new Error('Services or wallet not initialized');
+    }
+    const pool = pools.find((p) => p.pool.equals(poolAddress));
+    if (!pool) throw new Error('Pool not found');
+    const inputMint = (isTokenAToB ? pool.tokenAMint : pool.tokenBMint).toString();
+    const outputMint = (isTokenAToB ? pool.tokenBMint : pool.tokenAMint).toString();
+    const decimals = await getTokenDecimals(inputMint);
+    const rawAmount = Math.max(0, Math.floor(amountIn * Math.pow(10, decimals)));
+    const quote = await jupiterService.getQuote(inputMint, outputMint, String(rawAmount), slippageBps, undefined, true);
+    // Reuse existing helper to execute and send
+    const swapTxB64 = await jupiterService.getSwapTransaction(quote, walletInfo.publicKey.toString(), true);
+    const { Transaction } = await import('@solana/web3.js');
+    const tx = Transaction.from(Buffer.from(swapTxB64, 'base64'));
+    const sig = await walletService.sendTransaction(tx);
+    return sig;
+  };
+
+  // Raydium adapters (placeholders)
+  const getSwapQuoteOnRaydium = async (
+    poolAddress: PublicKey,
+    amountIn: number,
+    isTokenAToB: boolean,
+  ): Promise<SwapQuote | null> => {
+    if (!raydiumService) {
+      console.warn('⚠️ Raydium service not initialized, falling back to Jupiter');
+      return await getSwapQuoteAsync(poolAddress, amountIn, isTokenAToB);
+    }
+
+    try {
+      console.log('🔄 Getting Raydium quote...');
+      const raydiumQuote = await raydiumService.getQuote(poolAddress, amountIn, isTokenAToB);
+      
+      // Convert Raydium quote to SwapQuote format
+      const swapQuote: SwapQuote = {
+        amountIn: amountIn,
+        amountOut: raydiumQuote.amountOut,
+        fee: raydiumQuote.fee,
+        priceImpact: raydiumQuote.priceImpact,
+        slippage: raydiumQuote.slippage,
+      };
+      
+      console.log('✅ Raydium quote received:', swapQuote);
+      return swapQuote;
+    } catch (error) {
+      console.error('❌ Raydium quote failed, falling back to Jupiter:', error);
+      return await getSwapQuoteAsync(poolAddress, amountIn, isTokenAToB);
+    }
+  };
+
+  const executeSwapOnRaydium = async (
+    poolAddress: PublicKey,
+    amountIn: number,
+    isTokenAToB: boolean,
+  ): Promise<string> => {
+    if (!raydiumService || !walletInfo) {
+      console.warn('⚠️ Raydium service not initialized or wallet not connected, falling back to Jupiter');
+      return await executeSwapOnJupiter(poolAddress, amountIn, isTokenAToB, 50);
+    }
+
+    try {
+      console.log('🔄 Executing Raydium swap...');
+      const params = {
+        poolAddress,
+        amountIn,
+        directionAToB: isTokenAToB,
+        slippageTolerance: 50,
+        userPublicKey: walletInfo.publicKey
+      };
+      
+      const signature = await raydiumService.executeSwap(params);
+      console.log('✅ Raydium swap executed:', signature);
+      return signature;
+    } catch (error) {
+      console.error('❌ Raydium swap failed, falling back to Jupiter:', error);
+      return await executeSwapOnJupiter(poolAddress, amountIn, isTokenAToB, 50);
     }
   };
 
@@ -796,6 +979,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     executeJupiterSwap,
     getSupportedTokens,
     getTokenPrice,
+    getJupiterTokenMetadata,
     generateAddressQRCode,
     generateTransactionQRCode,
     generateExplorerQRCode,
@@ -808,6 +992,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     initializePool,
     loadPools,
     getTokenBalances,
+    getSwapQuoteAsync,
+    executeSwapOnJupiter,
+    executeSwapOnRaydium,
+    getSwapQuoteOnRaydium,
+    router,
+    setRouter,
     getTokenImageUrl,
     getTokenMetadata,
     getFallbackIcon,

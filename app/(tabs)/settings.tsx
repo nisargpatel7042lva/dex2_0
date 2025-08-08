@@ -5,12 +5,12 @@ import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 const SettingItem = ({ 
@@ -90,7 +90,7 @@ const SectionHeader = ({ title }: { title: string }) => {
 
 export default function SettingsScreen() {
   const { theme } = useAppTheme();
-  const { walletInfo, disconnectWallet, token2022Mints } = useApp();
+  const { walletInfo, disconnectWallet, token2022Mints, router, setRouter } = useApp();
   const { signOut } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -244,6 +244,16 @@ export default function SettingsScreen() {
             switchValue={biometricEnabled}
             onSwitchChange={setBiometricEnabled}
             showArrow={false}
+          />
+
+          <SettingItem
+            icon="swap-horizontal-outline"
+            title={`Router: ${router === 'jupiter' ? 'Jupiter' : 'Raydium'}`}
+            subtitle="Choose the swap routing engine"
+            onPress={() => {
+              if (setRouter) setRouter(router === 'jupiter' ? 'raydium' : 'jupiter');
+            }}
+            showArrow
           />
         </View>
 

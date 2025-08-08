@@ -1,184 +1,227 @@
-# Token-2022 Liquidity Service Testing Guide
+# Mobile App Testing Guide for Launch
 
-## 🚀 How to Test Your Token-2022 Liquidity Integration
+## 🚀 Pre-Launch Testing Checklist
 
-Now that you've started the app with `yarn start`, follow these steps to test if the Token-2022 liquidity service is working properly:
+### 1. **Wallet Connection & Authentication**
+- [ ] **Connect Wallet**: Test wallet connection with Phantom, Solflare, or other Solana wallets
+- [ ] **Reconnection**: Test wallet reconnection after app restart
+- [ ] **Balance Display**: Verify SOL and token balances are displayed correctly
+- [ ] **Network Switching**: Test switching between devnet/testnet/mainnet
 
-### 1. 📱 Basic App Testing
+### 2. **Token Launchpad (Priority 1)**
+- [ ] **Basic Token Creation**: Create a simple Token-2022 without transfer hooks
+  - [ ] Enter token name, symbol, description
+  - [ ] Set decimals (6-9)
+  - [ ] Set total supply
+  - [ ] Add optional social links (website, Twitter, Telegram)
+  - [ ] Verify transaction signing and confirmation
+- [ ] **Transfer Hook Token**: Create token with transfer hook enabled
+  - [ ] Enable transfer hook checkbox
+  - [ ] Enter hook program ID
+  - [ ] Enter hook authority
+  - [ ] Add optional hook data
+  - [ ] Verify token creation with hook
+- [ ] **Error Handling**: Test with insufficient SOL balance
+- [ ] **Success Flow**: Verify token appears in portfolio after creation
 
-**First, check if the app runs without crashes:**
+### 3. **Send/Receive Functionality (Priority 1)**
+- [ ] **SOL Transfers**: Send SOL to another wallet address
+  - [ ] Enter valid recipient address
+  - [ ] Set amount (with MAX button)
+  - [ ] Verify fee calculation
+  - [ ] Test transaction signing and confirmation
+- [ ] **Token-2022 Transfers**: Send custom tokens
+  - [ ] Select token from dropdown
+  - [ ] Verify balance display
+  - [ ] Test transfer execution
+- [ ] **Receive Screen**: 
+  - [ ] Display wallet address correctly
+  - [ ] Generate QR code
+  - [ ] Copy address functionality
+- [ ] **Error Cases**:
+  - [ ] Invalid address format
+  - [ ] Insufficient balance
+  - [ ] Network errors
 
-1. Open your app in the simulator/device
-2. Navigate through the main screens (Portfolio, Trading, Settings)
-3. Check the console for any initialization errors
-4. Look for these success messages in the console:
-   ```
-   ✅ Token2022LiquidityService created
-   ✅ All services initialized successfully!
-   ```
+### 4. **Swap/Trading (Priority 2)**
+- [ ] **Jupiter Integration**: Test token swaps via Jupiter
+  - [ ] Select from/to tokens
+  - [ ] Get swap quotes
+  - [ ] Execute swaps
+  - [ ] Verify price impact and slippage
+- [ ] **Raydium Integration**: Test Raydium swaps
+  - [ ] Switch between Jupiter and Raydium
+  - [ ] Execute swaps on Raydium
+- [ ] **Pool Trading**: Test trading on custom pools
+  - [ ] View available pools
+  - [ ] Select pool for trading
+  - [ ] Execute buy/sell orders
+- [ ] **Chart Display**: Verify price charts load correctly
+- [ ] **Error Handling**: Test with insufficient liquidity
 
-### 2. 🔧 Console Testing (Quick Method)
+### 5. **Portfolio Management**
+- [ ] **Token Balances**: Display all owned tokens
+- [ ] **Transaction History**: Show recent transactions
+- [ ] **Token Details**: View token metadata and info
+- [ ] **Balance Updates**: Verify balances update after transactions
 
-**In your browser console (if using web) or React Native debugger:**
+### 6. **UI/UX Testing**
+- [ ] **Dark/Light Theme**: Test theme switching
+- [ ] **Responsive Design**: Test on different screen sizes
+- [ ] **Navigation**: Test tab navigation and back buttons
+- [ ] **Loading States**: Verify loading indicators work
+- [ ] **Error Messages**: Test error handling and user feedback
+- [ ] **Accessibility**: Test with screen readers and accessibility features
 
-```javascript
-// Test the manual testing function
-import { testToken2022LiquidityService } from './src/tests/manual-test';
+### 7. **Performance Testing**
+- [ ] **App Launch**: Test cold start time
+- [ ] **Transaction Speed**: Measure transaction confirmation times
+- [ ] **Memory Usage**: Monitor memory consumption
+- [ ] **Battery Usage**: Test battery drain during extended use
+- [ ] **Network Handling**: Test with slow/unstable connections
 
-// Run the comprehensive test
-testToken2022LiquidityService().then(() => {
-  console.log('All tests completed!');
-});
+### 8. **Security Testing**
+- [ ] **Private Key Security**: Verify keys are never exposed
+- [ ] **Transaction Signing**: Test secure transaction signing
+- [ ] **Address Validation**: Test address format validation
+- [ ] **Input Sanitization**: Test against malicious inputs
+
+## 🧪 Test Scenarios
+
+### Scenario 1: Complete Token Launch Flow
+1. Connect wallet
+2. Navigate to Launchpad
+3. Create a new token with transfer hook
+4. Verify token appears in portfolio
+5. Send some tokens to another address
+6. Verify transaction success
+
+### Scenario 2: Trading Flow
+1. Connect wallet with SOL balance
+2. Navigate to Trading
+3. Select a trading pair
+4. Get swap quote
+5. Execute swap
+6. Verify balance updates
+
+### Scenario 3: Error Recovery
+1. Test with insufficient balance
+2. Test with invalid addresses
+3. Test network disconnection
+4. Verify proper error messages
+5. Test recovery mechanisms
+
+## 🐛 Known Issues & Workarounds
+
+### Issue 1: Wallet Connection Timeout
+- **Symptom**: Wallet connection fails after 30 seconds
+- **Workaround**: Retry connection, check network status
+- **Fix**: Implement connection retry logic
+
+### Issue 2: Token Creation Fails
+- **Symptom**: Token creation transaction fails
+- **Workaround**: Ensure sufficient SOL for fees (0.01 SOL minimum)
+- **Fix**: Add better error handling and fee estimation
+
+### Issue 3: Swap Quote Errors
+- **Symptom**: Jupiter/Raydium quotes fail
+- **Workaround**: Try different token pairs or amounts
+- **Fix**: Implement fallback quote providers
+
+## 📱 Device Testing
+
+### Android Testing
+- [ ] **Samsung Galaxy S21+** (Android 13)
+- [ ] **Google Pixel 6** (Android 13)
+- [ ] **OnePlus 9** (Android 12)
+- [ ] **Xiaomi Mi 11** (Android 12)
+
+### iOS Testing
+- [ ] **iPhone 14 Pro** (iOS 16)
+- [ ] **iPhone 13** (iOS 16)
+- [ ] **iPhone 12** (iOS 15)
+- [ ] **iPad Pro** (iOS 16)
+
+## 🔧 Debug Tools
+
+### Console Logging
+   ```javascript
+// Enable debug logging
+console.log('Debug mode enabled');
 ```
 
-### 3. 🧪 In-App Testing (Recommended)
+### Network Monitoring
+- Use Chrome DevTools for network inspection
+- Monitor RPC calls to Solana
+- Check Jupiter/Raydium API responses
 
-**Use the dedicated test component I created for you:**
+### Transaction Tracking
+- Use Solscan/Solana Explorer for transaction verification
+- Monitor transaction status in real-time
 
-1. Navigate to the test page: `/token2022-test`
-2. Tap "Run All Tests" button
-3. Watch the test results appear in real-time
-4. Each test will show:
-   - ✅ Success (green)
-   - ❌ Error (red) 
-   - ⏳ Pending (orange)
+## 🚨 Critical Launch Requirements
 
-**Expected Test Results:**
-- ✅ Services Initialization
-- ✅ Wallet Connection (if wallet is connected)
-- ✅ Calculate Optimal Liquidity
-- ✅ Get User Liquidity Positions (returns empty array)
-- ✅ Get Pool Info (returns null for mock data)
-- ❌ Transaction Building (expected to fail with mock data)
+### Must Work:
+- [ ] Wallet connection and authentication
+- [ ] SOL transfers (send/receive)
+- [ ] Basic token creation (without transfer hooks)
+- [ ] Token transfers
+- [ ] Basic swap functionality
 
-### 4. 🔍 What to Check For
+### Should Work:
+- [ ] Transfer hook token creation
+- [ ] Advanced trading features
+- [ ] Portfolio management
+- [ ] Chart displays
 
-#### ✅ Success Indicators:
-1. **No compilation errors** when starting the app
-2. **Services initialized** message in console
-3. **Token2022LiquidityService** appears in app context
-4. **Test component** loads without crashing
-5. **Basic calculations** work (liquidity calculation)
+### Nice to Have:
+- [ ] Advanced UI animations
+- [ ] Push notifications
+- [ ] Social features
 
-#### ⚠️ Expected Failures:
-1. **Transaction building** will fail (using mock data)
-2. **Network calls** may timeout (using placeholder endpoints)
-3. **Pool info** returns null (no real pool data)
+## 📋 Launch Day Checklist
 
-#### ❌ Actual Issues to Fix:
-1. **App crashes** on startup
-2. **TypeScript compilation** errors
-3. **Service not initialized** errors
-4. **Import/export** errors
+### Pre-Launch (24 hours before):
+- [ ] Complete all critical functionality testing
+- [ ] Fix any blocking issues
+- [ ] Prepare app store assets
+- [ ] Test on production network
 
-### 5. 📊 Manual Testing Steps
+### Launch Day:
+- [ ] Monitor app performance
+- [ ] Track user onboarding
+- [ ] Monitor transaction success rates
+- [ ] Respond to user feedback
 
-**Step by Step Manual Testing:**
+### Post-Launch (First week):
+- [ ] Monitor crash reports
+- [ ] Track user engagement
+- [ ] Gather user feedback
+- [ ] Plan immediate improvements
 
-1. **Check App Context:**
-   ```javascript
-   // In your app component, log the context
-   const { token2022LiquidityService, servicesInitialized } = useApp();
-   console.log('Service available:', !!token2022LiquidityService);
-   console.log('Services initialized:', servicesInitialized);
-   ```
+## 🆘 Emergency Contacts
 
-2. **Test Liquidity Calculation:**
-   ```javascript
-   const { calculateOptimalLiquidity } = useApp();
-   const result = calculateOptimalLiquidity('1000', '2000', -1000, 1000, 0);
-   console.log('Liquidity calculation result:', result);
-   ```
+- **Technical Lead**: [Contact Info]
+- **QA Lead**: [Contact Info]
+- **DevOps**: [Contact Info]
+- **Support**: [Contact Info]
 
-3. **Test Service Methods:**
-   ```javascript
-   const { token2022LiquidityService } = useApp();
-   if (token2022LiquidityService) {
-     // Test calculation method
-     const liquidity = token2022LiquidityService.calculateLiquidity('1000', '2000', -1000, 1000, 0);
-     console.log('Direct service calculation:', liquidity);
-   }
-   ```
+## 📊 Success Metrics
 
-### 6. 🐛 Common Issues & Fixes
+### Technical Metrics:
+- App crash rate < 1%
+- Transaction success rate > 95%
+- Average transaction time < 5 seconds
+- App launch time < 3 seconds
 
-#### Issue: "Service not initialized"
-**Fix:** Check that the service is being created in AppContext initialization
-
-#### Issue: TypeScript errors
-**Fix:** Run `npm run type-check` to see specific type issues
-
-#### Issue: Import errors
-**Fix:** Check file paths in import statements
-
-#### Issue: Transaction building fails
-**Expected:** This will fail with mock data, that's normal
-
-### 7. 📈 Next Steps After Basic Testing
-
-**Once basic tests pass:**
-
-1. **Connect Real Wallet**
-   - Test with actual wallet connection
-   - Check wallet balance retrieval
-   - Verify wallet service integration
-
-2. **Use Real Pool Data**
-   - Replace mock pool addresses with real Raydium V3 pools
-   - Test with actual Token-2022 tokens
-   - Verify instruction data format
-
-3. **Test Transaction Simulation**
-   - Use Solana transaction simulation
-   - Verify instruction accounts are correct
-   - Check instruction data serialization
-
-4. **Integration Testing**
-   - Test from the trading UI
-   - Verify user flow works end-to-end
-   - Test error handling
-
-### 8. 🎯 Success Criteria
-
-**Your integration is working if:**
-- ✅ App starts without crashes
-- ✅ Services initialize successfully  
-- ✅ Token2022LiquidityService is available in context
-- ✅ Basic calculations work
-- ✅ Method calls don't throw errors
-- ✅ Test component runs without issues
-
-**Ready for production when:**
-- ✅ All above + real wallet integration
-- ✅ Real pool data integration
-- ✅ Transaction simulation passes
-- ✅ UI integration complete
+### User Metrics:
+- User retention rate > 70% (Day 1)
+- User retention rate > 50% (Day 7)
+- Average session duration > 5 minutes
+- Feature adoption rate > 30%
 
 ---
 
-## 🔧 Quick Debug Commands
-
-```bash
-# Check for compilation errors
-npm run type-check
-
-# Build the app
-npm run build
-
-# View logs
-npx react-native log-ios    # iOS
-npx react-native log-android # Android
-
-# Clear cache if needed
-npx react-native start --reset-cache
-```
-
-## 📞 What to Report
-
-**If tests fail, please share:**
-1. Console error messages
-2. Which specific tests failed
-3. App startup logs
-4. TypeScript compilation errors
-
-This will help me quickly identify and fix any remaining issues!
+**Last Updated**: [Date]
+**Version**: 1.0.0
+**Status**: Ready for Launch Testing

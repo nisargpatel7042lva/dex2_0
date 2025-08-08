@@ -108,6 +108,16 @@ export class DEXService {
     this.connection = connection;
   }
 
+  /**
+   * Return an embeddable chart URL for a given pair, using Dexscreener lightweight widget.
+   * Docs: https://docs.dexscreener.com/
+   */
+  getEmbedChartUrl(pairAddress: string, theme: 'dark' | 'light' = 'dark', interval: '5' | '15' | '60' | '240' | '1D' = '15'): string {
+    const encoded = encodeURIComponent(`https://dexscreener.com/solana/${pairAddress}?embed=1&interval=${interval}&theme=${theme}`);
+    // Using a simple wrapper URL keeps it future-proof; WebView will load the target directly
+    return `https://dexscreener.com/embedded/v2?url=${encoded}`;
+  }
+
   async searchTokens(query: string): Promise<SearchResult> {
     try {
       // Mock data for demo - in real app, call DEX Screener API

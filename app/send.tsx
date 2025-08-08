@@ -3,32 +3,77 @@ import { useAppTheme } from '@/components/app-theme';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
+// Common tokens for selection
+const COMMON_TOKENS = [
+  { symbol: 'SOL', name: 'Solana', mint: 'So11111111111111111111111111111111111111112', decimals: 9, isNative: true },
+  { symbol: 'USDC', name: 'USD Coin', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', decimals: 6, isNative: false },
+  { symbol: 'USDT', name: 'Tether', mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', decimals: 6, isNative: false },
+];
 
 export default function SendScreen({ hideHeader = false }: { hideHeader?: boolean }) {
   const { theme } = useAppTheme();
-  const { walletInfo, walletService } = useApp();
+  const { walletInfo, walletService, getTokenBalances } = useApp();
   
   // Transfer state
+  const [selectedToken, setSelectedToken] = useState(COMMON_TOKENS[0]); // SOL by default
   const [recipientAddress, setRecipientAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [isValidAddress, setIsValidAddress] = useState(false);
+  const [showTokenSelector, setShowTokenSelector] = useState(false);
+  const [availableTokens, setAvailableTokens] = useState(COMMON_TOKENS);
+  const [tokenBalances, setTokenBalances] = useState<any[]>([]);
+  const [maxAmount, setMaxAmount] = useState('0');
 
   // Fee calculation (mock)
   const networkFee = 0.000005; // SOL
-  const totalFee = networkFee;
+  const totalFee = selectedToken.symbol === 'SOL' ? networkFee : 0; // Only SOL pays network fees
   const totalAmount = amount ? parseFloat(amount) + totalFee : 0;
+
+  // Load token balances when wallet connects
+  useEffect(() => {
+    if (walletInfo && walletService) {
+      loadTokenBalances();
+    }
+  }, [walletInfo, selectedToken]);
+
+  const loadTokenBalances = async () => {
+    try {
+      const balances = await getTokenBalances();
+      setTokenBalances(balances);
+      
+      // Find balance for selected token
+      const tokenBalance = balances.find(
+        (token: any) => token.mint?.toString() === selectedToken.mint
+      );
+      
+      if (tokenBalance && tokenBalance.balance > 0) {
+        setMaxAmount(tokenBalance.balance.toString());
+      } else if (selectedToken.symbol === 'SOL' && walletInfo) {
+        // For SOL, use wallet balance but reserve some for fees
+        const reserveAmount = 0.005;
+        const availableBalance = Math.max(0, walletInfo.balance - reserveAmount);
+        setMaxAmount(availableBalance.toFixed(9));
+      } else {
+        setMaxAmount('0');
+      }
+    } catch (error) {
+      console.error('Error loading token balances:', error);
+    }
+  };
 
   const validateAddress = (address: string) => {
     // Basic Solana address validation (44 characters, base58)
@@ -54,8 +99,8 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
     const parts = cleanValue.split('.');
     if (parts.length > 2) return;
     
-    // Limit decimal places to 9 (Solana's max)
-    if (parts[1] && parts[1].length > 9) return;
+    // Limit decimal places based on token decimals
+    if (parts[1] && parts[1].length > selectedToken.decimals) return;
     
     setAmount(cleanValue);
   };
@@ -77,13 +122,15 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
     }
 
     const numAmount = parseFloat(amount);
-    if (numAmount > walletInfo.balance) {
-      Alert.alert('Error', 'Insufficient balance');
+    const availableBalance = parseFloat(maxAmount);
+    
+    if (numAmount > availableBalance) {
+      Alert.alert('Error', `Insufficient ${selectedToken.symbol} balance`);
       return;
     }
 
-    if (totalAmount > walletInfo.balance) {
-      Alert.alert('Error', 'Insufficient balance to cover amount + fees');
+    if (selectedToken.symbol === 'SOL' && totalAmount > walletInfo.balance) {
+      Alert.alert('Error', 'Insufficient SOL balance to cover amount + fees');
       return;
     }
 
@@ -93,46 +140,78 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
       // Show signing prompt
       Alert.alert(
         'Sign Transaction',
-        'Please sign the transfer transaction in your wallet to proceed.',
+        `Please sign the ${selectedToken.symbol} transfer transaction in your wallet to proceed.`,
         [{ text: 'OK' }]
       );
       
-      // Create real SOL transfer transaction
-      const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+      let signature: string;
       
-      const connection = new Connection('https://api.testnet.solana.com', 'confirmed');
-      const transaction = new Transaction();
-      
-      // Add transfer instruction
-      const transferInstruction = SystemProgram.transfer({
-        fromPubkey: walletInfo.publicKey,
-        toPubkey: new PublicKey(recipientAddress),
-        lamports: Math.floor(numAmount * LAMPORTS_PER_SOL),
-      });
-      
-      transaction.add(transferInstruction);
-      
-      // Get recent blockhash
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = walletInfo.publicKey;
-      
-      // Sign and send transaction using the wallet service
-      const signature = await walletService.sendTransaction(transaction);
+      if (selectedToken.isNative) {
+        // SOL transfer
+        const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+        
+        const connection = new Connection('https://api.testnet.solana.com', 'confirmed');
+        const transaction = new Transaction();
+        
+        const transferInstruction = SystemProgram.transfer({
+          fromPubkey: walletInfo.publicKey,
+          toPubkey: new PublicKey(recipientAddress),
+          lamports: Math.floor(numAmount * LAMPORTS_PER_SOL),
+        });
+        
+        transaction.add(transferInstruction);
+        
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = walletInfo.publicKey;
+        
+        signature = await walletService.sendTransaction(transaction);
+      } else {
+        // Token-2022 transfer
+        const { Connection, PublicKey, Transaction } = await import('@solana/web3.js');
+        const { createTransferInstruction, getAssociatedTokenAddress } = await import('@solana/spl-token');
+        
+        const connection = new Connection('https://api.testnet.solana.com', 'confirmed');
+        const transaction = new Transaction();
+        
+        // Get token accounts
+        const sourceTokenAccount = await getAssociatedTokenAddress(
+          new PublicKey(selectedToken.mint),
+          walletInfo.publicKey
+        );
+        
+        const destinationTokenAccount = await getAssociatedTokenAddress(
+          new PublicKey(selectedToken.mint),
+          new PublicKey(recipientAddress)
+        );
+        
+        // Create transfer instruction
+        const transferInstruction = createTransferInstruction(
+          sourceTokenAccount,
+          destinationTokenAccount,
+          walletInfo.publicKey,
+          Math.floor(numAmount * Math.pow(10, selectedToken.decimals))
+        );
+        
+        transaction.add(transferInstruction);
+        
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = walletInfo.publicKey;
+        
+        signature = await walletService.sendTransaction(transaction);
+      }
       
       // Show confirmation message
       Alert.alert(
         'Transaction Submitted',
-        'Your transfer transaction has been submitted. Waiting for confirmation...',
+        `Your ${selectedToken.symbol} transfer transaction has been submitted. Waiting for confirmation...`,
         [{ text: 'OK' }]
       );
       
-      // Wait for confirmation
-      await connection.confirmTransaction(signature, 'confirmed');
-      
       Alert.alert(
         'Transfer Successful!',
-        `Sent ${amount} SOL to ${recipientAddress.slice(0, 8)}...${recipientAddress.slice(-8)}\n\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}\n\nView on Solscan: https://solscan.io/tx/${signature}`,
+        `Sent ${amount} ${selectedToken.symbol} to ${recipientAddress.slice(0, 8)}...${recipientAddress.slice(-8)}\n\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}\n\nView on Solscan: https://solscan.io/tx/${signature}`,
         [
           { text: 'OK', onPress: () => router.back() },
           { 
@@ -143,6 +222,12 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
           }
         ]
       );
+      
+      // Reset form
+      setAmount('');
+      setRecipientAddress('');
+      setNote('');
+      
     } catch (error) {
       console.error('Transfer error:', error);
       Alert.alert('Error', error instanceof Error ? error.message : 'Transfer failed. Please try again.');
@@ -151,6 +236,45 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
     }
   };
 
+  const handleTokenSelect = (token: any) => {
+    setSelectedToken(token);
+    setAmount('');
+    setMaxAmount('0');
+    setShowTokenSelector(false);
+  };
+
+  const setMaxAmountValue = () => {
+    const maxAmountFloat = parseFloat(maxAmount);
+    if (maxAmountFloat > 0) {
+      const precision = Math.min(selectedToken.decimals, 9);
+      let formattedAmount = maxAmountFloat.toFixed(precision);
+      formattedAmount = parseFloat(formattedAmount).toString();
+      setAmount(formattedAmount);
+    }
+  };
+
+  const renderTokenItem = ({ item }: { item: any }) => (
+    <TouchableOpacity 
+      style={[styles.tokenSelectorItem, { backgroundColor: theme.colors.background }]}
+      onPress={() => handleTokenSelect(item)}
+    >
+      <View style={styles.tokenSelectorInfo}>
+        <View style={[styles.tokenSelectorIcon, { backgroundColor: theme.colors.primary }]}>
+          <AppText style={styles.tokenSelectorIconText}>{item.symbol.charAt(0)}</AppText>
+        </View>
+        <View>
+          <AppText style={[styles.tokenSelectorSymbolText, { color: theme.colors.text }]}>
+            {item.symbol}
+          </AppText>
+          <AppText style={[styles.tokenSelectorName, { color: theme.colors.muted }]}>
+            {item.name}
+          </AppText>
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={theme.colors.muted} />
+    </TouchableOpacity>
+  );
+
   const pasteAddress = async () => {
     // In a real app, this would use Clipboard API
     Alert.alert('Paste', 'Paste functionality would be implemented here');
@@ -158,13 +282,6 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
 
   const scanQR = () => {
     Alert.alert('Scan QR', 'QR scanning functionality would be implemented here');
-  };
-
-  const setMaxAmount = () => {
-    if (walletInfo) {
-      const maxAmount = Math.max(0, walletInfo.balance - totalFee);
-      setAmount(maxAmount.toFixed(9));
-    }
   };
 
   if (!walletInfo) {
@@ -210,6 +327,35 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
       )}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Token Selection */}
+        <View style={[styles.inputCard, { backgroundColor: theme.colors.card }]}>
+          <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Token</AppText>
+          
+          <TouchableOpacity 
+            style={styles.tokenSelector}
+            onPress={() => setShowTokenSelector(true)}
+          >
+            <View style={styles.tokenInfo}>
+              <View style={[styles.tokenIcon, { backgroundColor: theme.colors.primary }]}>
+                <AppText style={styles.tokenIconText}>{selectedToken.symbol.charAt(0)}</AppText>
+              </View>
+              <View>
+                <AppText style={[styles.tokenSymbol, { color: theme.colors.text }]}>
+                  {selectedToken.symbol}
+                </AppText>
+                <AppText style={[styles.tokenName, { color: theme.colors.muted }]}>
+                  {selectedToken.name}
+                </AppText>
+              </View>
+            </View>
+            <Ionicons name="chevron-down" size={16} color={theme.colors.text} />
+          </TouchableOpacity>
+          
+          <AppText style={[styles.balanceText, { color: theme.colors.muted }]}>
+            Available: {parseFloat(maxAmount).toFixed(selectedToken.decimals)} {selectedToken.symbol}
+          </AppText>
+        </View>
+
         {/* Recipient Address */}
         <View style={[styles.inputCard, { backgroundColor: theme.colors.card }]}>
           <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Recipient Address</AppText>
@@ -268,6 +414,9 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
                 { 
                   color: theme.colors.text,
                   backgroundColor: theme.colors.background,
+                  borderColor: parseFloat(amount || '0') > parseFloat(maxAmount) 
+                    ? '#ef4444' 
+                    : theme.colors.border
                 }
               ]}
               placeholder="0.0"
@@ -278,15 +427,17 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
             />
             <TouchableOpacity
               style={[styles.maxButton, { backgroundColor: theme.colors.primary }]}
-              onPress={setMaxAmount}
+              onPress={setMaxAmountValue}
             >
               <AppText style={[styles.maxButtonText, { color: theme.colors.background }]}>MAX</AppText>
             </TouchableOpacity>
           </View>
           
-          <AppText style={[styles.balanceText, { color: theme.colors.muted }]}>
-            Available: {walletInfo.balance.toFixed(9)} SOL
-          </AppText>
+          {parseFloat(amount || '0') > parseFloat(maxAmount) && (
+            <AppText style={[styles.errorText, { color: '#ef4444' }]}>
+              Insufficient balance
+            </AppText>
+          )}
         </View>
 
         {/* Note (Optional) */}
@@ -312,23 +463,25 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
         </View>
 
         {/* Fee Breakdown */}
-        <View style={[styles.feeCard, { backgroundColor: theme.colors.card }]}>
-          <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Fee Breakdown</AppText>
-          
-          <View style={[styles.feeRow, { borderBottomColor: theme.colors.border }]}>
-            <AppText style={[styles.feeLabel, { color: theme.colors.muted }]}>Network Fee</AppText>
-            <AppText style={[styles.feeValue, { color: theme.colors.text }]}>
-              {networkFee.toFixed(9)} SOL
-            </AppText>
+        {selectedToken.symbol === 'SOL' && (
+          <View style={[styles.feeCard, { backgroundColor: theme.colors.card }]}>
+            <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Fee Breakdown</AppText>
+            
+            <View style={[styles.feeRow, { borderBottomColor: theme.colors.border }]}>
+              <AppText style={[styles.feeLabel, { color: theme.colors.muted }]}>Network Fee</AppText>
+              <AppText style={[styles.feeValue, { color: theme.colors.text }]}>
+                {networkFee.toFixed(9)} SOL
+              </AppText>
+            </View>
+            
+            <View style={styles.feeRow}>
+              <AppText style={[styles.feeLabel, { color: theme.colors.muted }]}>Total Amount</AppText>
+              <AppText style={[styles.feeValue, { color: theme.colors.text }]}>
+                {totalAmount.toFixed(9)} SOL
+              </AppText>
+            </View>
           </View>
-          
-          <View style={styles.feeRow}>
-            <AppText style={[styles.feeLabel, { color: theme.colors.muted }]}>Total Amount</AppText>
-            <AppText style={[styles.feeValue, { color: theme.colors.text }]}>
-              {totalAmount.toFixed(9)} SOL
-            </AppText>
-          </View>
-        </View>
+        )}
 
         {/* Security Notice */}
         <View style={[styles.securityCard, { backgroundColor: theme.colors.card }]}>
@@ -346,18 +499,47 @@ export default function SendScreen({ hideHeader = false }: { hideHeader?: boolea
           style={[
             styles.sendButton,
             { 
-              backgroundColor: loading || !isValidAddress || !amount ? theme.colors.muted : theme.colors.primary,
-              opacity: loading || !isValidAddress || !amount ? 0.6 : 1,
+              backgroundColor: loading || !isValidAddress || !amount || parseFloat(amount || '0') > parseFloat(maxAmount) 
+                ? theme.colors.muted 
+                : theme.colors.primary,
+              opacity: loading || !isValidAddress || !amount || parseFloat(amount || '0') > parseFloat(maxAmount) ? 0.6 : 1,
             }
           ]}
           onPress={handleSend}
-          disabled={loading || !isValidAddress || !amount}
+          disabled={loading || !isValidAddress || !amount || parseFloat(amount || '0') > parseFloat(maxAmount)}
         >
           <AppText style={[styles.sendButtonText, { color: theme.colors.background }]}>
-            {loading ? 'Sending...' : 'Send Transaction'}
+            {loading ? 'Sending...' : `Send ${selectedToken.symbol}`}
           </AppText>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Token Selector Modal */}
+      <Modal
+        visible={showTokenSelector}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowTokenSelector(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.modalHeader, { backgroundColor: theme.colors.card }]}>
+            <AppText style={[styles.modalTitle, { color: theme.colors.text }]}>
+              Select Token to Send
+            </AppText>
+            <TouchableOpacity onPress={() => setShowTokenSelector(false)}>
+              <Ionicons name="close" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+          
+          <FlatList
+            data={availableTokens}
+            renderItem={renderTokenItem}
+            keyExtractor={(item) => item.mint}
+            style={styles.tokenList}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -423,6 +605,83 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceGrotesk-Bold',
     marginBottom: 16,
   },
+  tokenSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 8,
+  },
+  tokenInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tokenIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  tokenIconText: {
+    fontSize: 20,
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  tokenSymbol: {
+    fontSize: 18,
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  tokenSelectorSymbol: {
+    fontSize: 18,
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  tokenName: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  tokenSelectorItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  tokenSelectorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tokenSelectorIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  tokenSelectorIconText: {
+    fontSize: 20,
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  tokenSelectorSymbolText: {
+    fontSize: 18,
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  tokenSelectorName: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  tokenList: {
+    paddingHorizontal: 10,
+  },
+  balanceText: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
   addressInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -475,9 +734,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'SpaceGrotesk-Bold',
   },
-  balanceText: {
+  errorText: {
     fontSize: 14,
     fontFamily: 'SpaceGrotesk-Regular',
+    marginTop: 8,
   },
   noteInput: {
     paddingHorizontal: 16,
@@ -540,6 +800,23 @@ const styles = StyleSheet.create({
   },
   sendButtonText: {
     fontSize: 18,
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  modalContainer: {
+    flex: 1,
+    paddingTop: 50, // Adjust for header height
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalTitle: {
+    fontSize: 20,
     fontFamily: 'SpaceGrotesk-Bold',
   },
 }); 

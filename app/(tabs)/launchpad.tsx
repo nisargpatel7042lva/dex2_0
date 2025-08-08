@@ -20,6 +20,7 @@ export default function LaunchpadScreen() {
   const { theme } = useAppTheme();
   const { 
     walletInfo, 
+    walletService,
     createTokenLaunch, 
     createTransferHookToken, 
     requestAirdrop 
@@ -73,8 +74,15 @@ export default function LaunchpadScreen() {
   };
 
   const handleLaunchToken = async () => {
-    if (!tokenName || !tokenSymbol || !decimals || !totalSupply) {
+    if (!tokenName.trim() || !tokenSymbol.trim() || !tokenDescription.trim()) {
       setError('Please fill in all required fields');
+      setShowErrorModal(true);
+      return;
+    }
+
+    if (parseInt(totalSupply) <= 0 || parseInt(decimals) < 0 || parseInt(decimals) > 9) {
+      setError('Please enter valid supply and decimals');
+      setShowErrorModal(true);
       return;
     }
 
@@ -82,12 +90,33 @@ export default function LaunchpadScreen() {
     setError(null);
 
     try {
-      // Show signing prompt
-      Alert.alert(
-        'Sign Transaction',
-        'Please sign the token creation transaction in your wallet to proceed.',
-        [{ text: 'OK' }]
-      );
+      // Check if wallet is connected
+      if (!walletInfo) {
+        setError('Please connect your wallet first');
+        setShowErrorModal(true);
+        return;
+      }
+
+      // Check wallet balance
+      if (walletInfo.balance < 0.01) {
+        setError('Insufficient SOL balance. You need at least 0.01 SOL to create tokens. Please request an airdrop first.');
+        setShowErrorModal(true);
+        return;
+      }
+
+      // Debug: Test wallet connection status
+      console.log('🔍 Wallet connection debug info:', {
+        walletInfo: walletInfo ? {
+          publicKey: walletInfo.publicKey.toString(),
+          balance: walletInfo.balance,
+          isConnected: walletInfo.isConnected
+        } : null,
+        walletService: walletService ? {
+          isConnected: walletService.isWalletConnected(),
+          publicKey: walletService.getPublicKey()?.toString(),
+          authToken: walletService.getAuthToken() ? 'Present' : 'Missing'
+        } : null
+      });
 
       // Prepare Transfer Hook configuration
       let transferHookConfig = undefined;
@@ -135,12 +164,9 @@ export default function LaunchpadScreen() {
 
       console.log('Token launch result:', result);
 
-      // Show confirmation message
-      Alert.alert(
-        'Transaction Submitted',
-        'Your token creation transaction has been submitted. Waiting for confirmation...',
-        [{ text: 'OK' }]
-      );
+      // Show success message
+      setSuccess('Token launched successfully! Your wallet will prompt you to sign the transaction.');
+      setShowSuccessModal(true);
 
       // Generate mock data for display
       const mockMint = result.mint?.toString() || 'MockMintAddress123456789';
@@ -162,6 +188,7 @@ export default function LaunchpadScreen() {
       });
 
       setSuccess('Token launched successfully! Check your portfolio to see your new token.');
+      setShowSuccessModal(true);
       
       // Clear form
       setTokenName('');
@@ -176,68 +203,11 @@ export default function LaunchpadScreen() {
       setTransferHookProgramId('');
       setTransferHookAuthority('');
       setTransferHookData('');
-
-      // Trigger a refresh of token balances in portfolio
-      // This will make the new token appear in the user's portfolio
-      setTimeout(() => {
-        // The portfolio will automatically refresh when the user navigates back
-        console.log('Token created successfully. Please check your portfolio for the new token.');
-      }, 2000);
-
-    } catch (error) {
-      console.error('Error launching token:', error);
-      
-      // Check if it's a balance error and offer fallback
-      if (error instanceof Error && error.message.includes('Insufficient SOL balance')) {
-        Alert.alert(
-          'Insufficient Balance',
-          'You need SOL to create tokens. Would you like to see a demo with mock data instead?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Show Demo', 
-              onPress: () => {
-                // Generate mock data for demo
-                const mockMint = generateSolanaAddress();
-                const mockSignature = generateSolanaAddress();
-                
-                setPresaleInfo({
-                  mint: mockMint,
-                  signature: mockSignature,
-                  name: tokenName,
-                  symbol: tokenSymbol,
-                  description: tokenDescription,
-                  decimals: parseInt(decimals),
-                  totalSupply: parseInt(totalSupply),
-                  website: website || undefined,
-                  twitter: twitter || undefined,
-                  telegram: telegram || undefined,
-                  hasTransferHook: enableTransferHook,
-                  transferHookProgramId: transferHookProgramId || undefined,
-                });
-                
-                setSuccess('Demo token created! This is mock data for demonstration purposes.');
-                
-                // Clear form
-                setTokenName('');
-                setTokenSymbol('');
-                setTokenDescription('');
-                setDecimals('6');
-                setTotalSupply('1000000');
-                setWebsite('');
-                setTwitter('');
-                setTelegram('');
-                setEnableTransferHook(false);
-                setTransferHookProgramId('');
-                setTransferHookAuthority('');
-                setTransferHookData('');
-              }
-            }
-          ]
-        );
-      } else {
-        setError(`Failed to launch token: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+    } catch (err) {
+      console.error('Error launching token:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(errorMessage);
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -271,7 +241,7 @@ export default function LaunchpadScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header with proper top padding */}
         <View style={styles.header}>
           <AppText style={[styles.title, { color: theme.colors.text }]}>Token Launchpad</AppText>
@@ -414,6 +384,80 @@ export default function LaunchpadScreen() {
             </View>
           </View>
 
+          {/* Transfer Hook Configuration */}
+          <View style={styles.transferHookSection}>
+            <TouchableOpacity
+              style={styles.transferHookToggle}
+              onPress={() => setEnableTransferHook(!enableTransferHook)}
+            >
+              <View style={[styles.checkbox, { 
+                backgroundColor: enableTransferHook ? theme.colors.primary : 'transparent',
+                borderColor: theme.colors.border 
+              }]}>
+                {enableTransferHook && (
+                  <Ionicons name="checkmark" size={16} color="#000000" />
+                )}
+              </View>
+              <View style={styles.transferHookInfo}>
+                <AppText style={[styles.transferHookTitle, { color: theme.colors.text }]}>
+                  Enable Transfer Hook
+                </AppText>
+                <AppText style={[styles.transferHookDescription, { color: theme.colors.secondary }]}>
+                  Add custom logic to token transfers (advanced)
+                </AppText>
+              </View>
+            </TouchableOpacity>
+
+            {enableTransferHook && (
+              <View style={styles.transferHookConfig}>
+                <View style={styles.inputGroup}>
+                  <AppText style={[styles.label, { color: theme.colors.text }]}>Hook Program ID</AppText>
+                  <TextInput
+                    style={[styles.input, { 
+                      backgroundColor: theme.colors.background, 
+                      color: theme.colors.text, 
+                      borderColor: theme.colors.border 
+                    }]}
+                    placeholder="Enter program ID"
+                    placeholderTextColor={theme.colors.secondary}
+                    value={transferHookProgramId}
+                    onChangeText={setTransferHookProgramId}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <AppText style={[styles.label, { color: theme.colors.text }]}>Hook Authority</AppText>
+                  <TextInput
+                    style={[styles.input, { 
+                      backgroundColor: theme.colors.background, 
+                      color: theme.colors.text, 
+                      borderColor: theme.colors.border 
+                    }]}
+                    placeholder="Enter authority address"
+                    placeholderTextColor={theme.colors.secondary}
+                    value={transferHookAuthority}
+                    onChangeText={setTransferHookAuthority}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <AppText style={[styles.label, { color: theme.colors.text }]}>Hook Data (Optional)</AppText>
+                  <TextInput
+                    style={[styles.input, { 
+                      backgroundColor: theme.colors.background, 
+                      color: theme.colors.text, 
+                      borderColor: theme.colors.border 
+                    }]}
+                    placeholder="Enter hex data"
+                    placeholderTextColor={theme.colors.secondary}
+                    value={transferHookData}
+                    onChangeText={setTransferHookData}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+
           <TouchableOpacity
             style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
             onPress={handleLaunchToken}
@@ -542,9 +586,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 16,
     paddingTop: 60, // Add proper top padding
-    paddingBottom: 160, // Increased bottom padding to clear the floating navbar
+    paddingBottom: 150, // Increased bottom padding to clear the floating navbar
   },
   header: {
     marginBottom: 24,
@@ -601,6 +647,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 8,
+    marginBottom: 20, // Add extra bottom margin for the button
   },
   createButtonText: {
     fontSize: 16,
@@ -750,5 +797,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'SpaceGrotesk-Bold',
     marginLeft: 6,
+  },
+  transferHookSection: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  transferHookToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  transferHookInfo: {
+    flex: 1,
+  },
+  transferHookTitle: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk-SemiBold',
+    marginBottom: 4,
+  },
+  transferHookDescription: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk-Regular',
+  },
+  transferHookConfig: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
 }); 

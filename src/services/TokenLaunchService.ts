@@ -1,5 +1,6 @@
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { Token2022Service } from './Token2022Service';
+import { WalletService } from './WalletService';
 
 export interface TokenLaunchConfig {
   name: string;
@@ -21,10 +22,12 @@ export interface TokenLaunchResult {
 export class TokenLaunchService {
   private connection: Connection;
   private token2022Service: Token2022Service;
+  private walletService: WalletService;
 
-  constructor(connection: Connection) {
+  constructor(connection: Connection, walletService: WalletService) {
     this.connection = connection;
-    this.token2022Service = new Token2022Service(connection);
+    this.walletService = walletService;
+    this.token2022Service = new Token2022Service(connection, walletService);
   }
 
   /**
@@ -75,6 +78,57 @@ export class TokenLaunchService {
     } catch (error) {
       console.error('Error creating token:', error);
       throw new Error(`Failed to create token: ${error}`);
+    }
+  }
+
+  /**
+   * Create a new Token-2022 token using the user's wallet for signing
+   */
+  async createTokenWithWallet(
+    walletPublicKey: PublicKey,
+    config: TokenLaunchConfig
+  ): Promise<TokenLaunchResult> {
+    try {
+      console.log('Creating Token-2022 with wallet:', walletPublicKey.toString());
+      
+      // Create the mint using Token2022Service with wallet
+      const mint = await this.token2022Service.initializeMintWithWallet(
+        walletPublicKey,
+        config.decimals,
+        config.totalSupply
+      );
+      
+      // Mint initial supply to the wallet
+      const signature = await this.token2022Service.mintToWithWallet(
+        walletPublicKey,
+        mint,
+        walletPublicKey,
+        config.totalSupply
+      );
+      
+      // Get associated token account
+      const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+      const tokenAccount = await getAssociatedTokenAddress(
+        mint,
+        walletPublicKey,
+        false,
+        await import('@solana/spl-token').then(m => m.TOKEN_2022_PROGRAM_ID)
+      );
+      
+      console.log('Token created successfully with wallet:', {
+        mint: mint.toString(),
+        signature: signature,
+        tokenAccount: tokenAccount.toString()
+      });
+      
+      return { 
+        mint: mint, 
+        signature: signature, 
+        tokenAccount: tokenAccount 
+      };
+    } catch (error) {
+      console.error('Error creating token with wallet:', error);
+      throw new Error(`Failed to create token with wallet: ${error}`);
     }
   }
 

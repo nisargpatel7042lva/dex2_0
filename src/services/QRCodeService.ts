@@ -174,7 +174,7 @@ export class QRCodeService {
    * Validate if a string is a valid QR code data
    */
   static isValidQRData(data: string): boolean {
-    return data && data.length > 0 && data.length <= 2953;
+    return Boolean(data && data.length > 0 && data.length <= 2953);
   }
 
   /**

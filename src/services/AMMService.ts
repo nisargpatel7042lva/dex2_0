@@ -1,7 +1,6 @@
 import {
   createAssociatedTokenAccountInstruction,
   createInitializeAccount3Instruction,
-  createTransferHookInstruction,
   getAccount,
   getAssociatedTokenAddress,
   TOKEN_2022_PROGRAM_ID
