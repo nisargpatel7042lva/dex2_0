@@ -674,9 +674,6 @@ export default function PortfolioScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Token Balances</AppText>
-            <AppText style={[styles.tokenCount, { color: theme.colors.muted }]}>
-              {tokenBalances.length} tokens
-            </AppText>
           </View>
 
           {tokenBalances.length > 0 ? (
@@ -759,7 +756,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 40, // Added proper line height
     marginBottom: 8,
+    paddingVertical: 4, // Added padding to prevent cutting
   },
   subtitle: {
     fontSize: 16,
@@ -768,7 +767,9 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 32,
     fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 40, // Added proper line height
     marginBottom: 8,
+    paddingVertical: 4, // Added padding to prevent cutting
   },
   walletCard: {
     borderRadius: 16,
@@ -830,6 +831,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 24, // Added proper line height
+    paddingVertical: 2, // Added padding to prevent cutting
   },
   tokenCount: {
     fontSize: 14,

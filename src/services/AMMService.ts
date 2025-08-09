@@ -454,7 +454,7 @@ export class AMMService {
       // For now, return mock data
       const mockPools: PoolInfo[] = [
         {
-          pool: new PublicKey('11111111111111111111111111111111'),
+          pool: new PublicKey('11111111111111111111111111111112'),
           tokenAMint: tokenMint,
           tokenBMint: new PublicKey('So11111111111111111111111111111111111111112'), // SOL
           tokenAVault: new PublicKey('11111111111111111111111111111112'),
@@ -631,7 +631,7 @@ export class AMMService {
     // This is a simplified swap instruction
     // In a real implementation, this would be a proper AMM swap instruction
     return SystemProgram.transfer({
-      fromPubkey: new PublicKey('11111111111111111111111111111111'),
+      fromPubkey: new PublicKey('11111111111111111111111111111112'),
       toPubkey: poolAddress,
       lamports: amountIn,
     });

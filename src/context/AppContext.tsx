@@ -2,8 +2,9 @@ import { DecreaseLiquidityParams, IncreaseLiquidityParams, LiquidityPosition, To
 import { TokenImageService } from '@/src/services/TokenImageService';
 import { TransferHookAMMService } from '@/src/services/TransferHookAMMService';
 import { TransferHookService } from '@/src/services/TransferHookService';
-import { PublicKey } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { DevnetConfig } from '../../constants/devnet-config';
 import { AMMService, LiquidityQuote, PoolInfo, SwapQuote } from '../services/AMMService';
 import { JupiterQuote, JupiterService } from '../services/JupiterService';
 import { QRCodeService } from '../services/QRCodeService';
@@ -167,11 +168,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         console.log('🔄 Starting services initialization...');
         
         // Initialize services with connection
-        const { Connection } = await import('@solana/web3.js');
         console.log('✅ Web3.js imported successfully');
         
         const connection = new Connection(
-          'https://api.devnet.solana.com',
+          DevnetConfig.RPC_ENDPOINT,
           'confirmed'
         );
         console.log('✅ Connection created');
@@ -201,7 +201,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         console.log('✅ QRCodeService created');
         
         console.log('🔄 Creating AMMService...');
-        const ammProgramId = new PublicKey('11111111111111111111111111111111');
+        const ammProgramId = new PublicKey('11111111111111111111111111111112'); // System Program ID (mock)
         const ammSvc = new AMMService(connection, ammProgramId);
         console.log('✅ AMMService created');
         
@@ -377,7 +377,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
 
     try {
-      const { Keypair } = await import('@solana/web3.js');
       const payerKeypair = Keypair.generate(); // This should be the user's actual keypair
       
       const mint = await token2022Service.initializeMint(payerKeypair, decimals, supply);
@@ -417,7 +416,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         config.decimals,
         config.totalSupply,
         {
-          programId: new PublicKey('11111111111111111111111111111111'), // Mock hook program
+          programId: DevnetConfig.TRANSFER_HOOKS.FEE_COLLECTION, // Use valid devnet hook program
           authority: walletInfo.publicKey,
         }
       );
@@ -425,7 +424,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       return {
         mint: result.mint,
         signature: result.signature,
-        hookProgramId: new PublicKey('11111111111111111111111111111111'),
+        hookProgramId: DevnetConfig.TRANSFER_HOOKS.FEE_COLLECTION,
       };
     } catch (err) {
       console.error('Error creating Transfer Hook token:', err);
@@ -439,7 +438,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
 
     try {
-      const { Keypair } = await import('@solana/web3.js');
       const payerKeypair = Keypair.generate();
       
       const result = await ammService.initializePool(
@@ -471,7 +469,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
 
     try {
-      const { Keypair } = await import('@solana/web3.js');
       const payerKeypair = Keypair.generate();
       
       // Mock transfer with hook
@@ -521,7 +518,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       // The swap transaction is returned as a base64 encoded string
       // We need to deserialize it and send it through the wallet
       if (walletService) {
-        const { Transaction } = await import('@solana/web3.js');
         const transaction = Transaction.from(Buffer.from(swapTransaction, 'base64'));
         
         // Send the transaction through the wallet
@@ -634,7 +630,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     const quote = await jupiterService.getQuote(inputMint, outputMint, String(rawAmount), slippageBps, undefined, true);
     // Reuse existing helper to execute and send
     const swapTxB64 = await jupiterService.getSwapTransaction(quote, walletInfo.publicKey.toString(), true);
-    const { Transaction } = await import('@solana/web3.js');
     const tx = Transaction.from(Buffer.from(swapTxB64, 'base64'));
     const sig = await walletService.sendTransaction(tx);
     return sig;
@@ -823,12 +818,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       // Mock pools for now
       const mockPools: PoolInfo[] = [
         {
-          pool: new PublicKey('11111111111111111111111111111111'),
+          pool: new PublicKey('11111111111111111111111111111112'),
           tokenAMint: new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'),
           tokenBMint: new PublicKey('So11111111111111111111111111111111111111112'),
-          tokenAVault: new PublicKey('11111111111111111111111111111112'),
-          tokenBVault: new PublicKey('11111111111111111111111111111113'),
-          lpMint: new PublicKey('11111111111111111111111111111114'),
+          tokenAVault: new PublicKey('11111111111111111111111111111113'),
+          tokenBVault: new PublicKey('11111111111111111111111111111114'),
+          lpMint: new PublicKey('11111111111111111111111111111115'),
           feeRate: 30,
           totalLiquidity: 1000000,
           tokenAReserves: 500000,

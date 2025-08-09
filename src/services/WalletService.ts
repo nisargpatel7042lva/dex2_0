@@ -1,7 +1,7 @@
 import { NetworkConfig } from '@/constants/network-config';
 import { transact } from '@solana-mobile/mobile-wallet-adapter-protocol-web3js';
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { Connection, LAMPORTS_PER_SOL, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
+import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { toUint8Array } from 'js-base64';
 import { WalletConnectionDebugger, safeFirst } from '../utils/wallet-debug';
 
@@ -19,12 +19,27 @@ export interface AuthorizedAccount {
   authTokenTimestamp: number; // When the auth token was created
 }
 
+export interface TokenBalance {
+  mint: string;
+  symbol: string;
+  name?: string;
+  balance: number;
+  decimals: number;
+  uiAmount: number;
+  value?: number;
+}
+
 export class WalletService {
   private connections: Connection[];
   private currentConnectionIndex: number = 0;
   private wallet: AuthorizedAccount | null = null;
   private lastConnectionCheck: number = 0;
   private readonly CONNECTION_CHECK_INTERVAL = NetworkConfig.CONNECTION_CHECK_INTERVAL;
+  private tokenBalanceCache: Map<string, { data: TokenBalance[], timestamp: number }> = new Map();
+  private readonly CACHE_DURATION = 30000; // 30 seconds cache
+  private authRetryCount: number = 0; // Prevent infinite retry loops
+  private readonly MAX_AUTH_RETRIES = 2;
+  public static SUPPRESS_429_ERRORS = false; // Flag to hide 429 errors for video shooting
 
   constructor() {
     // Multiple RPC endpoints for fallback - using mainnet for Jupiter compatibility
@@ -114,7 +129,7 @@ export class WalletService {
             name: 'Dex2.0',
             uri: 'https://dex2.app',
           },
-          chain: 'solana:mainnet',
+          chain: 'solana:devnet',
         });
         
         console.log('Auth result received, processing...');
@@ -178,10 +193,63 @@ export class WalletService {
     }
   }
 
+  // Refresh auth token without full reconnection
+  async refreshAuthToken(): Promise<boolean> {
+    if (!this.wallet) {
+      console.log('❌ No wallet to refresh auth token for');
+      return false;
+    }
+
+    try {
+      console.log('🔄 Refreshing auth token...');
+      
+      const account = await transact(async (wallet) => {
+        const authResult = await wallet.reauthorize({
+          identity: {
+            name: 'Dex2.0',
+            uri: 'https://dex2.app',
+          },
+          auth_token: this.wallet!.authToken,
+        });
+        
+        console.log('✅ Auth token refreshed successfully');
+        
+        return {
+          ...this.wallet!,
+          authToken: authResult.auth_token,
+          authTokenTimestamp: Date.now(),
+        };
+      });
+
+      this.wallet = account;
+      this.lastConnectionCheck = Date.now();
+      console.log('✅ Wallet auth token updated');
+      return true;
+      
+    } catch (error) {
+      console.log('❌ Failed to refresh auth token, will need full reconnection:', error);
+      return false;
+    }
+  }
+
   async reconnectWallet(): Promise<WalletInfo> {
-    console.log('Attempting to reconnect wallet...');
+    console.log('🔄 Attempting to reconnect wallet...');
     
     try {
+      // First try to refresh auth token if we still have a wallet
+      if (this.wallet && !this.isAuthTokenOld()) {
+        console.log('🔄 Trying auth token refresh first...');
+        const refreshed = await this.refreshAuthToken();
+        if (refreshed) {
+          const balance = await this.getSOLBalance(this.wallet.publicKey);
+          return {
+            publicKey: this.wallet.publicKey,
+            balance,
+            isConnected: true,
+          };
+        }
+      }
+      
       // Clear the current wallet state
       const previousPublicKey = this.wallet?.publicKey;
       this.wallet = null;
@@ -316,7 +384,7 @@ export class WalletService {
     }
   }
 
-  async sendTransaction(transaction: Transaction | VersionedTransaction): Promise<string> {
+  async sendTransaction(transaction: Transaction | VersionedTransaction, additionalSigners?: Keypair[]): Promise<string> {
     if (!this.wallet) {
       throw new Error('No wallet connected');
     }
@@ -333,8 +401,20 @@ export class WalletService {
         console.log('Auth token is very old, reconnecting before transaction...');
         await this.reconnectWallet();
       }
+
+      // Reset retry count on successful start
+      this.authRetryCount = 0;
       
       return await transact(async (wallet) => {
+        // If we have additional signers, we need to sign them first
+        if (additionalSigners && additionalSigners.length > 0 && transaction instanceof Transaction) {
+          console.log(`🔍 Signing transaction with ${additionalSigners.length} additional signers...`);
+          
+          // Sign with additional signers first
+          transaction.partialSign(...additionalSigners);
+          console.log('🔍 Additional signers have signed the transaction');
+        }
+
         // For VersionedTransaction, we need to handle it differently
         if (transaction instanceof VersionedTransaction) {
           const signatures = await wallet.signAndSendTransactions({
@@ -360,19 +440,46 @@ export class WalletService {
     } catch (error: any) {
       console.error('Error sending transaction:', error);
       
-      // Check if it's an auth token error and throw a specific error
+      // Check if it's an auth token error and try to recover
       if (error.message?.includes('auth_token not valid') || 
           error.message?.includes('not valid for signing') ||
           error.message?.includes('auth_token') ||
           error.name?.includes('SolanaMobileWalletAdapterProtocolError')) {
         
-        console.log('Auth token error detected, marking wallet for reconnection...');
+        console.log('🔄 Auth token error detected, attempting automatic recovery...');
         
-        // Clear the current wallet state so next validation will fail
-        this.lastConnectionCheck = 0;
+        // Prevent infinite retry loops
+        if (this.authRetryCount >= this.MAX_AUTH_RETRIES) {
+          console.log('❌ Maximum auth retries reached, giving up');
+          this.lastConnectionCheck = 0;
+          throw new Error('WALLET_AUTH_EXPIRED');
+        }
         
-        // Throw a specific error that the UI can handle
-        throw new Error('WALLET_AUTH_EXPIRED');
+        this.authRetryCount++;
+        console.log(`🔄 Auth retry attempt ${this.authRetryCount}/${this.MAX_AUTH_RETRIES}`);
+        
+        try {
+          // Try to refresh the auth token first
+          const refreshed = await this.refreshAuthToken();
+          if (refreshed) {
+            console.log('✅ Auth token refreshed, retrying transaction...');
+            // Retry the transaction with the new auth token
+            return await this.sendTransaction(transaction, additionalSigners);
+          } else {
+            // If refresh failed, try full reconnection
+            console.log('🔄 Auth refresh failed, attempting full reconnection...');
+            await this.reconnectWallet();
+            console.log('✅ Wallet reconnected, retrying transaction...');
+            // Retry the transaction with the new connection
+            return await this.sendTransaction(transaction, additionalSigners);
+          }
+        } catch (recoveryError) {
+          console.error('❌ Failed to recover from auth token error:', recoveryError);
+          // Clear the current wallet state so next validation will fail
+          this.lastConnectionCheck = 0;
+          // Throw a specific error that the UI can handle
+          throw new Error('WALLET_AUTH_EXPIRED');
+        }
       }
       
       throw error;
@@ -395,6 +502,16 @@ export class WalletService {
 
   async getTokenBalances(publicKey: PublicKey): Promise<any[]> {
     try {
+      const cacheKey = publicKey.toString();
+      const now = Date.now();
+      
+      // Check cache first
+      const cached = this.tokenBalanceCache.get(cacheKey);
+      if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
+        console.log('📋 Using cached token balances for:', cacheKey);
+        return cached.data;
+      }
+      
       console.log('🔍 Fetching token balances for:', publicKey.toString());
       
       // Fetch both regular SPL tokens and Token-2022 tokens
@@ -423,17 +540,29 @@ export class WalletService {
 
       const formattedBalances = allAccounts.map((account) => {
         const parsedInfo = account.account.data.parsed.info;
-        const balance = parseFloat(parsedInfo.tokenAmount.uiAmount || '0');
+        const balance = parseFloat(parsedInfo.tokenAmount.amount || '0');
+        const uiAmount = parseFloat(parsedInfo.tokenAmount.uiAmount || '0');
+        const decimals = parsedInfo.tokenAmount.decimals;
+        
         return {
           mint: parsedInfo.mint,
+          symbol: 'UNKNOWN', // Will be resolved later with metadata
+          name: undefined,
           balance: balance,
-          decimals: parsedInfo.tokenAmount.decimals,
-          address: account.pubkey.toString(),
-          programId: account.account.owner.toString(),
+          decimals: decimals,
+          uiAmount: uiAmount,
+          value: undefined, // Will be calculated with price data
         };
-      }).filter(token => token.balance > 0); // Only include tokens with positive balance
+      }).filter(token => token.uiAmount > 0); // Only include tokens with positive balance
 
       console.log('💰 Formatted token balances:', formattedBalances);
+      
+      // Cache the results
+      this.tokenBalanceCache.set(cacheKey, {
+        data: formattedBalances,
+        timestamp: now
+      });
+      
       return formattedBalances;
     } catch (error) {
       console.error('❌ Error getting token balances:', error);
@@ -464,9 +593,9 @@ export class WalletService {
     return Date.now() - this.wallet.authTokenTimestamp;
   }
 
-  // Check if auth token is getting old (more than 10 minutes)
+  // Check if auth token is getting old (more than 5 minutes for mobile wallet adapters)
   isAuthTokenOld(): boolean {
-    return this.getAuthTokenAge() > 600000; // 10 minutes
+    return this.getAuthTokenAge() > 300000; // 5 minutes (mobile wallets expire faster)
   }
 
   // Method to check if we need to reconnect
@@ -476,13 +605,18 @@ export class WalletService {
     const now = Date.now();
     const timeSinceLastCheck = now - this.lastConnectionCheck;
     
-    // If it's been more than 5 minutes since last successful check, suggest reconnect
-    return timeSinceLastCheck > 300000;
+    // Check multiple conditions for reconnection
+    return (
+      timeSinceLastCheck > 300000 || // 5 minutes since last check
+      this.isAuthTokenOld() || // Token is getting old
+      !this.wallet.authToken // No auth token
+    );
   }
 
   // Check if auth token is still valid without consuming it
   async validateAuthToken(): Promise<boolean> {
     if (!this.wallet?.authToken) {
+      console.log('❌ No auth token available');
       return false;
     }
 
@@ -492,7 +626,7 @@ export class WalletService {
     
     // If token is very fresh (less than 30 seconds), assume it's valid
     if (tokenAge < 30000) {
-      console.log('Auth token is fresh, assuming valid');
+      console.log('✅ Auth token is fresh, assuming valid');
       return true;
     }
     

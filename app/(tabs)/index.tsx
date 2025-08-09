@@ -7,11 +7,11 @@ import { useNotifications } from '@/src/context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface TokenBalance {
@@ -551,7 +551,9 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 32,
     fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 40, // Added proper line height
     marginBottom: 8,
+    paddingVertical: 4, // Added padding to prevent cutting
   },
   subtitle: {
     fontSize: 16,
@@ -662,6 +664,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 22,
     fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 28, // Added proper line height
+    paddingVertical: 3, // Added padding to prevent cutting
   },
   seeAllText: {
     fontSize: 14,

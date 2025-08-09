@@ -1,4 +1,9 @@
 import {
+  TOKEN_2022_PROGRAM_ID,
+  createInitializeMint2Instruction,
+  getMinimumBalanceForRentExemptMint
+} from '@solana/spl-token';
+import {
   Connection,
   Keypair,
   PublicKey,
@@ -6,14 +11,6 @@ import {
   Transaction,
   sendAndConfirmTransaction,
 } from '@solana/web3.js';
-import {
-  TOKEN_2022_PROGRAM_ID,
-  createAssociatedTokenAccountInstruction,
-  createInitializeMint2Instruction,
-  createMintToInstruction,
-  getAssociatedTokenAddress,
-  getMinimumBalanceForRentExemptMint,
-} from '@solana/spl-token';
 
 export interface TransferHookConfig {
   programId: PublicKey;
@@ -142,7 +139,7 @@ export class TransferHookService {
         newAccountPubkey: pool.publicKey,
         space: 200,
         lamports: poolRent,
-        programId: new PublicKey('11111111111111111111111111111111'), // Mock AMM program
+        programId: new PublicKey('11111111111111111111111111111112'), // Mock AMM program
       });
       
       // Create transaction
@@ -202,7 +199,7 @@ export class TransferHookService {
       
       // Add a mock instruction that represents Transfer Hook logic
       const mockHookInstruction = {
-        programId: new PublicKey('11111111111111111111111111111111'),
+        programId: new PublicKey('11111111111111111111111111111112'),
         keys: [
           { pubkey: source, isSigner: false, isWritable: true },
           { pubkey: destination, isSigner: false, isWritable: true },

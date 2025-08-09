@@ -1,16 +1,17 @@
 import { AppText } from '@/components/app-text';
 import { useAppTheme } from '@/components/app-theme';
 import { useAuth } from '@/components/auth/auth-provider';
+import VideoModeToggle from '@/components/VideoModeToggle';
 import { useApp } from '@/src/context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const SettingItem = ({ 
@@ -257,6 +258,12 @@ export default function SettingsScreen() {
           />
         </View>
 
+        {/* Developer Tools Section */}
+        <View style={styles.section}>
+          <SectionHeader title="Developer Tools" />
+          <VideoModeToggle />
+        </View>
+
         {/* Token-2022 Section */}
         <View style={styles.section}>
           <SectionHeader title="Token-2022 Features" />
@@ -364,7 +371,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 40, // Added proper line height
     marginBottom: 8,
+    paddingVertical: 4, // Added padding to prevent cutting
   },
   subtitle: {
     fontSize: 16,

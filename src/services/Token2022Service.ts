@@ -426,21 +426,41 @@ export class Token2022Service {
       const transaction = new Transaction();
       console.log('🔍 Building transaction...');
 
-      // Add mint creation instruction
-      const createMintIx = createInitializeMint2Instruction(
+      // Get minimum balance for rent exemption for mint account
+      const mintRentExemption = await this.connection.getMinimumBalanceForRentExemption(82);
+      console.log('🔍 Mint rent exemption:', mintRentExemption / 1e9, 'SOL');
+
+      // Add create mint account instruction
+      const { SystemProgram } = await import('@solana/web3.js');
+      const createAccountIx = SystemProgram.createAccount({
+        fromPubkey: walletPublicKey,
+        newAccountPubkey: mintKeypair.publicKey,
+        space: 82, // Size for Token-2022 mint account
+        lamports: mintRentExemption,
+        programId: TOKEN_2022_PROGRAM_ID,
+      });
+      transaction.add(createAccountIx);
+      console.log('🔍 Added create mint account instruction');
+
+      // Add mint initialization instruction
+      const initializeMintIx = createInitializeMint2Instruction(
         mintKeypair.publicKey,
         decimals,
         walletPublicKey,
         walletPublicKey,
         TOKEN_2022_PROGRAM_ID
       );
-      transaction.add(createMintIx);
-      console.log('🔍 Added mint creation instruction');
+      transaction.add(initializeMintIx);
+      console.log('🔍 Added initialize mint instruction');
 
-      // Note: Transfer Hook initialization is not supported in current SPL Token library
+      // Note: Transfer Hook initialization is not fully supported in current SPL Token library
       // This would need to be implemented separately with custom instructions
       if (transferHookConfig) {
-        console.log('🔍 Transfer hook config provided but not implemented in current version');
+        console.log('🔍 Transfer hook config provided:', {
+          programId: transferHookConfig.programId.toString(),
+          authority: transferHookConfig.authority.toString()
+        });
+        // TODO: Add custom Transfer Hook extension instructions when available
       }
 
       // Add create associated token account instruction
@@ -473,9 +493,9 @@ export class Token2022Service {
       console.log('🔍 Set recent blockhash and fee payer');
 
       // This will trigger the wallet to sign the transaction
-      // The wallet service will handle the signing
+      // The wallet service will handle the signing, and we need to add the mint keypair as additional signer
       console.log('🔍 About to send transaction via wallet service...');
-      const signature = await this.walletService.sendTransaction(transaction);
+      const signature = await this.walletService.sendTransaction(transaction, [mintKeypair]);
       
       console.log('Token-2022 mint created successfully with wallet:', {
         mint: mintKeypair.publicKey.toString(),

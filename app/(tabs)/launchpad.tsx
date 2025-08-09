@@ -22,8 +22,7 @@ export default function LaunchpadScreen() {
     walletInfo, 
     walletService,
     createTokenLaunch, 
-    createTransferHookToken, 
-    requestAirdrop 
+    createTransferHookToken
   } = useApp();
   
   // Token configuration state
@@ -45,7 +44,6 @@ export default function LaunchpadScreen() {
   // UI State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [presaleInfo, setPresaleInfo] = useState<{
@@ -63,15 +61,7 @@ export default function LaunchpadScreen() {
     transferHookProgramId?: string;
   } | null>(null);
 
-  // Generate a proper Solana address
-  const generateSolanaAddress = (): string => {
-    // Generate a random 32-byte array and convert to base58
-    const bytes = new Uint8Array(32);
-    for (let i = 0; i < 32; i++) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
-    return new PublicKey(bytes).toString();
-  };
+
 
   const handleLaunchToken = async () => {
     if (!tokenName.trim() || !tokenSymbol.trim() || !tokenDescription.trim()) {
@@ -164,8 +154,7 @@ export default function LaunchpadScreen() {
 
       console.log('Token launch result:', result);
 
-      // Show success message
-      setSuccess('Token launched successfully! Your wallet will prompt you to sign the transaction.');
+      // Show success modal
       setShowSuccessModal(true);
 
       // Generate mock data for display
@@ -187,8 +176,7 @@ export default function LaunchpadScreen() {
         transferHookProgramId: transferHookProgramId || undefined,
       });
 
-      setSuccess('Token launched successfully! Check your portfolio to see your new token.');
-      setShowSuccessModal(true);
+
       
       // Clear form
       setTokenName('');
@@ -217,13 +205,13 @@ export default function LaunchpadScreen() {
     try {
       await Clipboard.setString(text);
       Alert.alert('Copied!', 'Address copied to clipboard');
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to copy to clipboard');
     }
   };
 
   const viewOnExplorer = (signature: string) => {
-    const url = `https://explorer.solana.com/tx/${signature}?cluster=testnet`;
+    const url = `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
     Linking.openURL(url).catch(() => {
       Alert.alert('Error', 'Could not open explorer');
     });
@@ -231,7 +219,6 @@ export default function LaunchpadScreen() {
 
   const closeSuccessModal = () => {
     setShowSuccessModal(false);
-    setSuccess(null);
   };
 
   const closeErrorModal = () => {
@@ -598,7 +585,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 40, // Added proper line height
     marginBottom: 8,
+    paddingVertical: 4, // Added padding to prevent cutting
   },
   subtitle: {
     fontSize: 16,
@@ -613,7 +602,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 26, // Added proper line height
     marginBottom: 20,
+    paddingVertical: 2, // Added padding to prevent cutting
   },
   inputGroup: {
     marginBottom: 16,

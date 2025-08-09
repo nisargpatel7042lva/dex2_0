@@ -1,3 +1,5 @@
+import { safeLog } from './error-suppression';
+
 class RateLimiter {
   private requestTimestamps: Map<string, number[]> = new Map();
   private readonly maxRequests: number;
@@ -16,6 +18,7 @@ class RateLimiter {
     const validTimestamps = timestamps.filter(timestamp => now - timestamp < this.timeWindow);
     
     if (validTimestamps.length >= this.maxRequests) {
+      safeLog(`🚫 Rate limit reached for ${key}. Max ${this.maxRequests} requests per ${this.timeWindow}ms`);
       return false;
     }
     
@@ -46,9 +49,9 @@ class RateLimiter {
   }
 }
 
-// Global rate limiters for different API endpoints
-export const coinGeckoRateLimiter = new RateLimiter(5, 60000); // 5 requests per minute
-export const solanaRPCRateLimiter = new RateLimiter(20, 60000); // 20 requests per minute
-export const jupiterRateLimiter = new RateLimiter(10, 60000); // 10 requests per minute
+// Global rate limiters for different API endpoints - More conservative limits to prevent 429 errors
+export const coinGeckoRateLimiter = new RateLimiter(1, 30000); // 1 request per 30 seconds (ultra conservative)
+export const solanaRPCRateLimiter = new RateLimiter(1, 30000); // 1 request per 30 seconds (ultra conservative)
+export const jupiterRateLimiter = new RateLimiter(1, 30000); // 1 request per 30 seconds (ultra conservative)
 
 export default RateLimiter;

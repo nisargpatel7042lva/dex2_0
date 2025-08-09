@@ -274,44 +274,10 @@ export default function TradingScreen() {
             <View>
               <AppText style={[styles.title, { color: theme.colors.text }]}>Trading</AppText>
               <AppText style={[styles.subtitle, { color: theme.colors.secondary }]}>
-                Trade Token-2022 with Transfer Hooks
+                Trade tokens with advanced features
               </AppText>
             </View>
-            <View style={styles.headerControls}>
-              <TouchableOpacity
-                style={[styles.testButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => {
-                  // Navigate to test screen or show test modal
-                  Alert.alert('Test Mode', 'Trading test functions are available. Check the console for test results.');
-                }}
-              >
-                <AppText style={[styles.testButtonText, { color: '#000' }]}>Test</AppText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.launchButton, { backgroundColor: theme.colors.primary }]}
-                onPress={handleDummyTokenLaunch}
-              >
-                <AppText style={[styles.launchButtonText, { color: theme.colors.background }]}>
-                  Dummy Token Launch
-                </AppText>
-              </TouchableOpacity>
-            </View>
           </View>
-        </View>
-
-        {/* Router Selection */}
-        <View style={styles.routerContainer}>
-          <AppText style={[styles.routerLabel, { color: theme.colors.text }]}>
-            Router: {router}
-          </AppText>
-          <TouchableOpacity
-            style={[styles.routerButton, { backgroundColor: theme.colors.primary }]}
-            onPress={() => setRouter?.(router === 'jupiter' ? 'raydium' : 'jupiter')}
-          >
-            <AppText style={[styles.routerButtonText, { color: theme.colors.background }]}>
-              Switch to {router === 'jupiter' ? 'Raydium' : 'Jupiter'}
-            </AppText>
-          </TouchableOpacity>
         </View>
 
         {showDummyTrading ? (
@@ -320,7 +286,7 @@ export default function TradingScreen() {
             <View style={styles.chartSection}>
               <View style={styles.chartHeader}>
                 <AppText style={[styles.chartTitle, { color: theme.colors.text }]}>
-                  DEMO/SOL
+                  TOKEN/SOL
                 </AppText>
                 <AppText style={[styles.chartPrice, { color: theme.colors.text }]}>
                   ${formatPrice(0.0456)}
@@ -400,7 +366,7 @@ export default function TradingScreen() {
             {/* Trading Interface */}
             <View style={styles.tradingSection}>
               <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                Trade DEMO Token
+                Trade Tokens
               </AppText>
               
               <View style={styles.amountInput}>
@@ -426,11 +392,11 @@ export default function TradingScreen() {
                   <AppText style={[styles.quoteText, { color: theme.colors.text }]}>
                     You will receive: {swapQuote.amountOut.toFixed(6)} SOL
                   </AppText>
-                                     <AppText style={[styles.quoteText, { color: theme.colors.secondary }]}>
-                     Price Impact: {swapQuote.priceImpact.toFixed(2)}%
+                      <AppText style={[styles.quoteText, { color: theme.colors.secondary }]}>
+                      Price Impact: {swapQuote.priceImpact.toFixed(2)}%
                    </AppText>
                    <AppText style={[styles.quoteText, { color: theme.colors.secondary }]}>
-                     Fee: {swapQuote.fee.toFixed(6)} DEMO
+                     Fee: {swapQuote.fee.toFixed(6)} Tokens
                    </AppText>
                 </View>
               )}
@@ -442,7 +408,7 @@ export default function TradingScreen() {
                   disabled={loading}
                 >
                   <AppText style={styles.actionButtonText}>
-                    {loading ? 'Processing...' : 'Buy DEMO'}
+                    {loading ? 'Processing...' : 'Buy Token'}
                   </AppText>
                 </TouchableOpacity>
                 
@@ -452,7 +418,7 @@ export default function TradingScreen() {
                   disabled={loading}
                 >
                   <AppText style={styles.actionButtonText}>
-                    {loading ? 'Processing...' : 'Sell DEMO'}
+                    {loading ? 'Processing...' : 'Sell Token'}
                   </AppText>
                 </TouchableOpacity>
               </View>
@@ -460,12 +426,12 @@ export default function TradingScreen() {
           </>
         ) : (
           <View style={styles.welcomeSection}>
-            <AppText style={[styles.welcomeTitle, { color: theme.colors.text }]}>
+            {/* <AppText style={[styles.welcomeTitle, { color: theme.colors.text }]}>
               Welcome to Trading
             </AppText>
-                         <AppText style={[styles.welcomeText, { color: theme.colors.secondary }]}>
-               Click &quot;Dummy Token Launch&quot; to start trading with demo data
-             </AppText>
+                <AppText style={[styles.welcomeText, { color: theme.colors.secondary }]}>
+                Click &quot;Dummy Token Launch&quot; to start trading with demo data
+             </AppText> */}
           </View>
         )}
 
@@ -612,8 +578,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 80,
-    paddingBottom: 20,
+    paddingTop: 60,
+    paddingBottom: 24,
   },
   headerTop: {
     flexDirection: 'row',
@@ -625,53 +591,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  testButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#6366f1',
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  testButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  launchButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  launchButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  routerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  routerLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  routerButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  routerButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
+
+
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 40, // Added proper line height
     marginBottom: 8,
+    paddingVertical: 4, // Added padding to prevent cutting
   },
   subtitle: {
     fontSize: 16,
+    fontFamily: 'SpaceGrotesk-Regular',
     opacity: 0.8,
   },
   chartCard: {
@@ -696,7 +627,7 @@ const styles = StyleSheet.create({
   },
   chartTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk-Bold',
     marginBottom: 4,
   },
   priceInfo: {
@@ -706,11 +637,11 @@ const styles = StyleSheet.create({
   },
   currentPrice: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk-SemiBold',
   },
   priceChange: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'SpaceGrotesk-Regular',
   },
   chartControls: {
     flexDirection: 'row',
@@ -897,8 +828,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 26, // Added proper line height
     marginBottom: 16,
+    paddingVertical: 2, // Added padding to prevent cutting
   },
   poolCard: {
     borderRadius: 16,
