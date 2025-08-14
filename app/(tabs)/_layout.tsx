@@ -1,8 +1,8 @@
 import { useAppTheme } from '@/components/app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Tabs, usePathname } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -17,6 +17,7 @@ interface TabItem {
 const tabs: TabItem[] = [
   { key: 'index', title: 'Home', icon: 'home-outline', iconSelected: 'home', screen: 'index' },
   { key: 'trading', title: 'Trade', icon: 'trending-up-outline', iconSelected: 'trending-up', screen: 'trading' },
+  { key: 'launchpad', title: 'Launch', icon: 'rocket-outline', iconSelected: 'rocket', screen: 'launchpad' },
   { key: 'portfolio', title: 'Portfolio', icon: 'pie-chart-outline', iconSelected: 'pie-chart', screen: 'portfolio' },
   { key: 'settings', title: 'Settings', icon: 'settings-outline', iconSelected: 'settings', screen: 'settings' },
 ];
@@ -27,8 +28,11 @@ export default function TabLayout() {
   const [activeTab, setActiveTab] = useState('index');
 
   useEffect(() => {
-    const currentTab = pathname.split('/').pop() || 'index';
-    setActiveTab(currentTab);
+    if (pathname) {
+      const pathSegments = pathname.split('/');
+      const currentTab = pathSegments[pathSegments.length - 1] || 'index';
+      setActiveTab(currentTab);
+    }
   }, [pathname]);
 
   const handleTabPress = (tabKey: string) => {
@@ -56,44 +60,44 @@ export default function TabLayout() {
         >
           <Tabs.Screen name="index" />
           <Tabs.Screen name="trading" />
+          <Tabs.Screen name="launchpad" />
           <Tabs.Screen name="portfolio" />
           <Tabs.Screen name="settings" />
+          <Tabs.Screen 
+            name="transfer-hook-launchpad" 
+            options={{ 
+              href: null  // This hides it from the tab bar
+            }} 
+          />
         </Tabs>
       </View>
 
-      {/* Custom Bottom Tab Bar */}
+      {/* Simple Floating Bottom Tab Bar */}
       <View style={styles.tabBarContainer}>
-        <View style={styles.tabBar}>
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.key;
-
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                style={styles.tabItem}
-                onPress={() => handleTabPress(tab.key)}
-                activeOpacity={0.7}
+        <View style={[styles.tabBar, { backgroundColor: theme.colors.background }]}>
+          {tabs.map((tab) => (
+            <Pressable
+              key={tab.key}
+              style={styles.tabItem}
+              onPress={() => handleTabPress(tab.key)}
+            >
+              <Ionicons
+                name={activeTab === tab.key ? (tab.iconSelected as any) : (tab.icon as any)}
+                size={24}
+                color={activeTab === tab.key ? theme.colors.primary : theme.colors.secondary}
+              />
+              <Text
+                style={[
+                  styles.tabLabel,
+                  {
+                    color: activeTab === tab.key ? theme.colors.primary : theme.colors.secondary,
+                  },
+                ]}
               >
-                {isActive && (
-                  <View style={styles.activeIndicator} />
-                )}
-
-                <Ionicons
-                  name={(isActive ? tab.iconSelected : tab.icon) as any}
-                  size={22}
-                  color={isActive ? '#fff' : '#666'}
-                  style={styles.tabIcon}
-                />
-
-                <Text style={[
-                  styles.tabTitle,
-                  isActive && styles.activeTabTitle
-                ]}>
-                  {tab.title}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+                {tab.title}
+              </Text>
+            </Pressable>
+          ))}
         </View>
       </View>
     </View>
@@ -109,23 +113,22 @@ const styles = StyleSheet.create({
   },
   tabBarContainer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: 16,
-    zIndex: 1000,
+    bottom: 20,
+    left: 20,
+    right: 20,
   },
   tabBar: {
     flexDirection: 'row',
-    marginHorizontal: 20,
-    borderRadius: 18,
-    paddingVertical: 10,
+    borderRadius: 16,
+    paddingVertical: 12,
     paddingHorizontal: 8,
-    backgroundColor: '#000',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
     elevation: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -133,34 +136,11 @@ const styles = StyleSheet.create({
   tabItem: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 8,
-    borderRadius: 16,
-    position: 'relative',
   },
-  activeIndicator: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    opacity: 0.1,
-  },
-  tabIcon: {
-    marginBottom: 4,
-  },
-  tabTitle: {
-    fontSize: 10,
-    color: '#666',
-    letterSpacing: 0.2,
-    fontFamily: 'SpaceGrotesk-SemiBold',
-    fontWeight: '600',
-  },
-  activeTabTitle: {
-    color: '#fff',
-    fontFamily: 'SpaceGrotesk-Bold',
-    fontWeight: '700',
+  tabLabel: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk-Medium',
+    marginTop: 4,
   },
 });

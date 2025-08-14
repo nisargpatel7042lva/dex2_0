@@ -90,15 +90,31 @@ export default function SignIn() {
   const handleConnectWallet = async () => {
     try {
       setLoadingText('Connecting to your wallet...');
+      console.log('=== CALLING CONNECT WALLET ===');
       await connectWallet();
       // Wallet connection automatically handles authentication
       // No need for separate signIn() call
     } catch (error) {
       console.error('Error connecting wallet:', error);
       
+      // Show more specific error messages
+      let errorMessage = 'Failed to connect wallet. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          errorMessage = 'Wallet connection timed out. Please ensure you have a Solana wallet app installed and try again.';
+        } else if (error.message.includes('cancelled')) {
+          errorMessage = 'Wallet connection was cancelled. Please try again.';
+        } else if (error.message.includes('No wallet account')) {
+          errorMessage = 'No wallet account found. Please make sure your wallet is unlocked and has accounts.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       Alert.alert(
         'Wallet Connection Error', 
-        'Failed to connect wallet. Please make sure you have a Solana wallet app installed (like Phantom, Solflare, or Slope) and try again.',
+        errorMessage,
         [{ text: 'OK' }]
       );
     }
@@ -124,7 +140,7 @@ export default function SignIn() {
           colors={['#000000', '#111111', '#1a1a1a']}
           style={styles.gradient}
         >
-          <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color="#6366f1" />
         </LinearGradient>
       </View>
     );
@@ -151,7 +167,7 @@ export default function SignIn() {
             },
           ]}
         >
-          <View style={styles.logoContainer}>
+            <View style={styles.logoContainer}>
             <Image
               source={require('../assets/images/icon.png')}
               style={styles.appLogo}
@@ -160,7 +176,7 @@ export default function SignIn() {
           <Text style={styles.appTitle} onPress={handleTitleTap}>DEX Screener</Text>
           <Text style={styles.appSubtitle}>
             Token-2022 Analytics & Trading Platform
-          </Text>
+              </Text>
         </Animated.View>
 
         {/* Tagline Section */}
@@ -175,10 +191,10 @@ export default function SignIn() {
         >
           <Text style={styles.tagline}>
             Experience the future of decentralized trading
-          </Text>
+              </Text>
           <Text style={styles.subtagline}>
             Trade Token-2022 with Transfer Hooks on Solana
-          </Text>
+              </Text>
         </Animated.View>
 
         {/* Connect Wallet Button */}
@@ -191,7 +207,7 @@ export default function SignIn() {
             },
           ]}
         >
-          <TouchableOpacity
+                  <TouchableOpacity
             style={[
               styles.primaryButton,
               {
@@ -199,9 +215,9 @@ export default function SignIn() {
                 opacity: loading || !servicesInitialized ? 0.6 : 1,
               },
             ]}
-            onPress={handleConnectWallet}
+                  onPress={handleConnectWallet}
             disabled={loading || !servicesInitialized}
-          >
+                >
             {!servicesInitialized ? (
               <>
                 <ActivityIndicator size="small" color="#000" />
@@ -215,7 +231,7 @@ export default function SignIn() {
             ) : (
               <>
                 <Ionicons name="wallet" size={24} color="#000" />
-                <Text style={styles.primaryButtonText}>Connect Wallet</Text>
+                <Text style={styles.primaryButtonText}> Connect Wallet</Text>
               </>
             )}
           </TouchableOpacity>
@@ -299,7 +315,6 @@ const styles = StyleSheet.create({
   },
   appTitle: {
     fontSize: 32,
-    fontWeight: 'bold',
     color: '#ffffff',
     marginBottom: 8,
     fontFamily: 'SpaceGrotesk-Bold',
@@ -352,7 +367,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     fontSize: 18,
-    fontWeight: '600',
     color: '#000000',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
