@@ -24,8 +24,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="templateexpobasic"/>
-        <data android:scheme="exp+web3js-expo"/>
+        <data android:scheme="dex2-0"/>
+        <data android:scheme="exp+dex2-0"/>
       </intent-filter>
     </activity>
   </application>

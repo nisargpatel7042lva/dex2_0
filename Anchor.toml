@@ -31,7 +31,7 @@ startup_wait = 5000
 shutdown_wait = 0
 
 [test.validator]
-url = "https://api.devnet.solana.com"
+url = "https://api.mainnet-beta.solana.com"
 
 [[test.genesis]]
 address = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"

@@ -1,17 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-    FlatList,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
-import { TokenBalance } from '../services/WalletService';
+import { } from '../services/WalletService';
+
+interface TokenBalance {
+  mint: { toString: () => string };
+  symbol: string;
+  name: string;
+  balance: number;
+  value?: number;
+  price?: number;
+  decimals: number;
+}
 
 const PortfolioScreen: React.FC = () => {
   const { walletService, walletInfo, requestAirdrop } = useApp();
@@ -27,7 +37,7 @@ const PortfolioScreen: React.FC = () => {
     if (!walletInfo) return;
 
     try {
-      const balances = await walletService.getTokenBalances();
+      const balances = await walletService.getTokenBalances(walletInfo.publicKey);
       setTokenBalances(balances);
       
       // Calculate total portfolio value
@@ -221,7 +231,7 @@ const PortfolioScreen: React.FC = () => {
               { type: 'receive', token: 'DEX2', amount: '1000', time: '1 day ago' },
               { type: 'send', token: 'USDC', amount: '50', time: '3 days ago' },
             ].map((activity, index) => (
-              <View key={index} style={styles.activityItem}>
+              <View key={`${activity.type}-${activity.token}-${index}`} style={styles.activityItem}>
                 <View style={[
                   styles.activityIcon,
                   activity.type === 'swap' && { backgroundColor: '#eef2ff' },

@@ -1,32 +1,234 @@
+
+
+import { AppText } from '@/components/app-text';
 import { useAppTheme } from '@/components/app-theme';
 import { NotificationButton } from '@/components/NotificationButton';
 import { NotificationModal } from '@/components/NotificationModal';
 import { useApp } from '@/src/context/AppContext';
 import { useNotifications } from '@/src/context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
+
+interface RecentLaunch {
+  id: string;
+  name: string;
+  symbol: string;
+  description: string;
+  launchDate: string;
+  transferHookEnabled: boolean;
+  confidentialTransferEnabled: boolean;
+  volume24h: string;
+  priceChange: string;
+  isPositive: boolean;
+  mint: string;
+}
 
 export default function HomeScreen() {
   const { theme } = useAppTheme();
-  const { walletInfo, requestAirdrop } = useApp();
+  const { 
+    walletInfo, 
+    requestAirdrop, 
+    walletService, 
+    getRealTimeSOLPrice, 
+    getRealTimeTokenPrice, 
+    getRecentTokenLaunches 
+  } = useApp();
   const { addNotification } = useNotifications();
   const [refreshing, setRefreshing] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
+  const [totalBalance, setTotalBalance] = useState(0);
+  const [recentLaunches, setRecentLaunches] = useState<RecentLaunch[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // Load total balance (SOL + all tokens) with minimal API calls
+  const loadTotalBalance = useCallback(async () => {
+    if (!walletInfo || !walletService || isLoadingData) return;
+
+    try {
+      setIsLoadingData(true);
+      console.log('🔄 Loading total balance for wallet:', walletInfo.publicKey.toString());
+      console.log('💰 Current SOL balance:', walletInfo.balance);
+      
+      // Get real-time SOL price (single API call)
+      const solPrice = await getRealTimeSOLPrice();
+      console.log('📈 SOL price:', solPrice);
+      
+      // Start with SOL balance
+      let total = walletInfo.balance * solPrice;
+      console.log('💵 SOL value:', total);
+
+      // Get all token balances (rate limited)
+      const tokenBalances = await walletService.getTokenBalances(walletInfo.publicKey);
+      console.log('🪙 Token balances found:', tokenBalances.length);
+      
+      // Limit to first 3 tokens to prevent excessive API calls
+      const limitedTokens = tokenBalances.slice(0, 3);
+      console.log(`📊 Processing ${limitedTokens.length} tokens (limited to prevent rate limiting)`);
+      
+      // Add token values using cached/fallback prices (avoid API calls in loop)
+      for (let i = 0; i < limitedTokens.length; i++) {
+        const token = limitedTokens[i];
+        if (token.balance > 0) {
+          console.log(`🪙 Processing token ${i + 1}/${limitedTokens.length}: ${token.mint}, balance: ${token.balance}`);
+          try {
+            // Use cached price service that prefers fallbacks over API calls
+            const realPrice = await getRealTimeTokenPrice(token.mint);
+            const tokenValue = token.balance * realPrice;
+            total += tokenValue;
+            console.log(`✅ Token ${token.mint}: ${token.balance} * $${realPrice} = $${tokenValue}`);
+          } catch (_error) {
+            console.warn(`⚠️ Failed to get price for ${token.mint}, using $1.00 fallback`);
+            const tokenValue = token.balance * 1.0;
+            total += tokenValue;
+            console.log(`🔄 Token ${token.mint}: ${token.balance} * $1.00 (fallback) = $${tokenValue}`);
+          }
+        }
+      }
+
+      console.log('🎯 Total balance calculated:', total);
+      setTotalBalance(total);
+    } catch (error) {
+      console.error('❌ Error loading total balance:', error);
+      // Fallback to mock calculation
+      let total = walletInfo.balance * 177; // Mock SOL price
+      const tokenBalances = await walletService.getTokenBalances(walletInfo.publicKey);
+      
+      for (const token of tokenBalances) {
+        if (token.balance > 0) {
+          const mockPrice = getMockTokenPrice(token.mint);
+          total += token.balance * mockPrice;
+        }
+      }
+      
+      console.log('🔄 Using fallback calculation:', total);
+      setTotalBalance(total);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, [walletInfo, walletService, isLoadingData, getRealTimeSOLPrice, getRealTimeTokenPrice]);
+
+  // Mock price function - replace with real price API
+  const getMockTokenPrice = (mint: string): number => {
+    const prices: { [key: string]: number } = {
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 1.00, // USDC
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1.00, // USDT
+      'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 0.50, // JUP
+      '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 0.25, // RAY
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 0.00001, // BONK
+    };
+    return prices[mint] || 1.00; // Default to $1 for unknown tokens
+  };
+
+  // Load recent launches from actual data
+  const loadRecentLaunches = useCallback(async () => {
+    if (isLoadingData) return;
+    
+    try {
+      // Fetch real token launch data from blockchain
+      const realLaunches = await getRecentTokenLaunches(10);
+      
+      // Convert to our interface format
+      const launches: RecentLaunch[] = realLaunches.map((launch, index) => ({
+        id: launch.mint,
+        name: launch.name || `Token-${index + 1}`,
+        symbol: launch.symbol || 'TOKEN',
+        description: `Token with ${launch.decimals} decimals and ${launch.totalSupply.toLocaleString()} total supply`,
+        launchDate: new Date(launch.timestamp).toLocaleDateString(),
+        transferHookEnabled: launch.isToken2022,
+        confidentialTransferEnabled: false, // Would need additional data to determine this
+        volume24h: '$0', // Would need additional API calls to get volume data
+        priceChange: '+0%', // Would need additional API calls to get price change data
+        isPositive: true,
+        mint: launch.mint,
+      }));
+
+      setRecentLaunches(launches);
+    } catch (error) {
+      console.error('Error loading recent launches:', error);
+      // Fallback to mock data
+      const mockLaunches: RecentLaunch[] = [
+        {
+          id: '1',
+          name: 'USDC-2022',
+          symbol: 'USDC',
+          description: 'USD Coin with Transfer Hooks enabled',
+          launchDate: new Date(Date.now() - 86400000).toLocaleDateString(), // 1 day ago
+          transferHookEnabled: true,
+          confidentialTransferEnabled: false,
+          volume24h: '$45.2M',
+          priceChange: '+2.5%',
+          isPositive: true,
+          mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        },
+        {
+          id: '2',
+          name: 'SOL-2022',
+          symbol: 'SOL',
+          description: 'Solana with advanced metadata pointers',
+          launchDate: new Date(Date.now() - 172800000).toLocaleDateString(), // 2 days ago
+          transferHookEnabled: true,
+          confidentialTransferEnabled: true,
+          volume24h: '$23.1M',
+          priceChange: '+5.23%',
+          isPositive: true,
+          mint: 'So11111111111111111111111111111111111111112',
+        },
+        {
+          id: '3',
+          name: 'RAY-2022',
+          symbol: 'RAY',
+          description: 'Raydium with custom transfer logic',
+          launchDate: new Date(Date.now() - 259200000).toLocaleDateString(), // 3 days ago
+          transferHookEnabled: true,
+          confidentialTransferEnabled: false,
+          volume24h: '$8.7M',
+          priceChange: '+12.45%',
+          isPositive: true,
+          mint: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
+        },
+        {
+          id: '4',
+          name: 'JUP-2022',
+          symbol: 'JUP',
+          description: 'Jupiter with enhanced security features',
+          launchDate: new Date(Date.now() - 345600000).toLocaleDateString(), // 4 days ago
+          transferHookEnabled: false,
+          confidentialTransferEnabled: true,
+          volume24h: '$15.3M',
+          priceChange: '-1.2%',
+          isPositive: false,
+          mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+        },
+      ];
+
+      setRecentLaunches(mockLaunches);
+    }
+  }, [isLoadingData, getRecentTokenLaunches]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate refresh
-    setTimeout(() => setRefreshing(false), 1000);
+    try {
+      await Promise.all([loadTotalBalance(), loadRecentLaunches()]);
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    }
+    setRefreshing(false);
   };
+
+  // Load data on mount and when wallet changes
+  useEffect(() => {
+    if (walletInfo) {
+      loadTotalBalance();
+      loadRecentLaunches();
+    }
+  }, [walletInfo, loadTotalBalance, loadRecentLaunches]);
 
   const handleRequestAirdrop = async () => {
     try {
@@ -38,6 +240,9 @@ export default function HomeScreen() {
         title: 'Airdrop Received!',
         message: 'You have successfully received 2 SOL airdrop to your wallet.',
       });
+
+      // Refresh balance after airdrop
+      await loadTotalBalance();
     } catch (error) {
       console.error('Error requesting airdrop:', error);
       
@@ -71,57 +276,7 @@ export default function HomeScreen() {
     });
   };
 
-  // Mock data for recent Token-2022 launches
-  const recentLaunches = [
-    {
-      id: '1',
-      name: 'USDC-2022',
-      symbol: 'USDC',
-      description: 'USD Coin with Transfer Hooks enabled',
-      launchDate: '2024-01-15',
-      transferHookEnabled: true,
-      confidentialTransferEnabled: false,
-      volume24h: '$45.2M',
-      priceChange: '+2.5%',
-      isPositive: true,
-    },
-    {
-      id: '2',
-      name: 'SOL-2022',
-      symbol: 'SOL',
-      description: 'Solana with advanced metadata pointers',
-      launchDate: '2024-01-14',
-      transferHookEnabled: true,
-      confidentialTransferEnabled: true,
-      volume24h: '$23.1M',
-      priceChange: '+5.23%',
-      isPositive: true,
-    },
-    {
-      id: '3',
-      name: 'RAY-2022',
-      symbol: 'RAY',
-      description: 'Raydium with custom transfer logic',
-      launchDate: '2024-01-13',
-      transferHookEnabled: true,
-      confidentialTransferEnabled: false,
-      volume24h: '$8.7M',
-      priceChange: '+12.45%',
-      isPositive: true,
-    },
-    {
-      id: '4',
-      name: 'SRM-2022',
-      symbol: 'SRM',
-      description: 'Serum with confidential transfers',
-      launchDate: '2024-01-12',
-      transferHookEnabled: false,
-      confidentialTransferEnabled: true,
-      volume24h: '$15.3M',
-      priceChange: '-1.2%',
-      isPositive: false,
-    },
-  ];
+
 
   return (
     <View 
@@ -132,8 +287,8 @@ export default function HomeScreen() {
         }
       ]}
     >
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
@@ -147,12 +302,12 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.headerLeft}>
-              <Text style={[styles.greeting, { color: theme.colors.text }]}>
+              <AppText style={[styles.greeting, { color: theme.colors.text }]}>
                 Welcome Back!
-              </Text>
-              <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
+              </AppText>
+              <AppText style={[styles.subtitle, { color: theme.colors.muted }]}>
                 Trade Token-2022 with Transfer Hooks
-              </Text>
+              </AppText>
             </View>
             <NotificationButton
               onPress={() => setNotificationModalVisible(true)}
@@ -169,37 +324,35 @@ export default function HomeScreen() {
                   <Ionicons name="wallet" size={20} color={theme.colors.primary} />
                 </View>
                 <View style={styles.walletInfo}>
-                  <Text style={[styles.walletTitle, { color: theme.colors.text }]}>Connected Wallet</Text>
-                  <Text style={[styles.walletAddress, { color: theme.colors.muted }]}>
+                  <AppText style={[styles.walletTitle, { color: theme.colors.text }]}>Connected Wallet</AppText>
+                  <AppText style={[styles.walletAddress, { color: theme.colors.muted }]}>
                     {walletInfo.publicKey.toString().substring(0, 8)}...{walletInfo.publicKey.toString().substring(walletInfo.publicKey.toString().length - 8)}
-                  </Text>
+                  </AppText>
                 </View>
               </View>
               <View style={styles.walletBalance}>
-                <Text style={[styles.balanceLabel, { color: theme.colors.muted }]}>Balance</Text>
-                <Text style={[styles.balanceAmount, { color: theme.colors.primary }]}>
+                <View style={styles.balanceHeader}>
+                  <AppText style={[styles.balanceLabel, { color: theme.colors.muted }]}>Total Balance</AppText>
+                  <TouchableOpacity 
+                    onPress={loadTotalBalance}
+                    disabled={isLoadingData}
+                    style={styles.refreshButton}
+                  >
+                    <Ionicons 
+                      name="refresh" 
+                      size={16} 
+                      color={isLoadingData ? theme.colors.muted : theme.colors.primary} 
+                    />
+                  </TouchableOpacity>
+                </View>
+                <AppText style={[styles.balanceAmount, { color: theme.colors.primary }]}>
+                  ${totalBalance.toFixed(2)}
+                </AppText>
+                <AppText style={[styles.solBalance, { color: theme.colors.muted }]}>
                   {walletInfo.balance.toFixed(4)} SOL
-                </Text>
+                </AppText>
               </View>
-              <View style={styles.walletActions}>
-                <Pressable 
-                  style={[styles.airdropButton, { backgroundColor: theme.colors.primary }]}
-                  onPress={handleRequestAirdrop}
-                  android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: false }}
-                >
-                  <Ionicons name="add-circle-outline" size={16} color="#000" />
-                  <Text style={[styles.airdropText, { color: '#000' }]}>Request Airdrop</Text>
-                </Pressable>
-                
-                <Pressable 
-                  style={[styles.sampleButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
-                  onPress={addSampleNotifications}
-                  android_ripple={{ color: 'rgba(99, 102, 241, 0.1)', borderless: false }}
-                >
-                  <Ionicons name="notifications" size={16} color={theme.colors.primary} />
-                  <Text style={[styles.sampleButtonText, { color: theme.colors.primary }]}>Add Sample</Text>
-                </Pressable>
-              </View>
+
             </View>
           )}
         </View>
@@ -207,9 +360,9 @@ export default function HomeScreen() {
         {/* Market Overview */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Token-2022 Market</Text>
+            <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Token-2022 Market</AppText>
             <TouchableOpacity>
-              <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</Text>
+              <AppText style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</AppText>
             </TouchableOpacity>
           </View>
           
@@ -217,37 +370,37 @@ export default function HomeScreen() {
             <View style={[styles.marketCard, { backgroundColor: theme.colors.card }]}>
               <View style={styles.marketCardHeader}>
                 <Ionicons name="trending-up" size={20} color={theme.colors.success} />
-                <Text style={[styles.marketCardTitle, { color: theme.colors.text }]}>Total Volume</Text>
+                <AppText style={[styles.marketCardTitle, { color: theme.colors.text }]}>Total Volume</AppText>
               </View>
-              <Text style={[styles.marketCardValue, { color: theme.colors.text }]}>$2.4B</Text>
-              <Text style={[styles.marketCardChange, { color: theme.colors.success }]}>+12.5%</Text>
+              <AppText style={[styles.marketCardValue, { color: theme.colors.text }]}>$2.4B</AppText>
+              <AppText style={[styles.marketCardChange, { color: theme.colors.success }]}>+12.5%</AppText>
             </View>
 
             <View style={[styles.marketCard, { backgroundColor: theme.colors.card }]}>
               <View style={styles.marketCardHeader}>
                 <Ionicons name="link" size={20} color={theme.colors.primary} />
-                <Text style={[styles.marketCardTitle, { color: theme.colors.text }]}>Transfer Hooks</Text>
+                <AppText style={[styles.marketCardTitle, { color: theme.colors.text }]}>Transfer Hooks</AppText>
               </View>
-              <Text style={[styles.marketCardValue, { color: theme.colors.text }]}>892</Text>
-              <Text style={[styles.marketCardChange, { color: theme.colors.success }]}>+23.1%</Text>
+              <AppText style={[styles.marketCardValue, { color: theme.colors.text }]}>892</AppText>
+              <AppText style={[styles.marketCardChange, { color: theme.colors.success }]}>+23.1%</AppText>
             </View>
 
             <View style={[styles.marketCard, { backgroundColor: theme.colors.card }]}>
               <View style={styles.marketCardHeader}>
                 <Ionicons name="eye-off" size={20} color={theme.colors.accent} />
-                <Text style={[styles.marketCardTitle, { color: theme.colors.text }]}>Confidential</Text>
+                <AppText style={[styles.marketCardTitle, { color: theme.colors.text }]}>Confidential</AppText>
               </View>
-              <Text style={[styles.marketCardValue, { color: theme.colors.text }]}>156</Text>
-              <Text style={[styles.marketCardChange, { color: theme.colors.success }]}>+15.3%</Text>
+              <AppText style={[styles.marketCardValue, { color: theme.colors.text }]}>156</AppText>
+              <AppText style={[styles.marketCardChange, { color: theme.colors.success }]}>+15.3%</AppText>
             </View>
 
             <View style={[styles.marketCard, { backgroundColor: theme.colors.card }]}>
               <View style={styles.marketCardHeader}>
                 <Ionicons name="swap-horizontal" size={20} color={theme.colors.warning} />
-                <Text style={[styles.marketCardTitle, { color: theme.colors.text }]}>Active Pairs</Text>
+                <AppText style={[styles.marketCardTitle, { color: theme.colors.text }]}>Active Pairs</AppText>
               </View>
-              <Text style={[styles.marketCardValue, { color: theme.colors.text }]}>1,247</Text>
-              <Text style={[styles.marketCardChange, { color: theme.colors.success }]}>+8.2%</Text>
+              <AppText style={[styles.marketCardValue, { color: theme.colors.text }]}>1,247</AppText>
+              <AppText style={[styles.marketCardChange, { color: theme.colors.success }]}>+8.2%</AppText>
             </View>
           </View>
         </View>
@@ -255,12 +408,12 @@ export default function HomeScreen() {
         {/* Recent Token-2022 Launches */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Launches</Text>
+            <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Launches</AppText>
             <TouchableOpacity>
-              <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</Text>
+              <AppText style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</AppText>
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.launchesList}>
             {recentLaunches.map((launch, index) => (
               <View
@@ -272,22 +425,22 @@ export default function HomeScreen() {
                   <View style={styles.launchHeader}>
                     <View style={styles.launchLeft}>
                       <View style={[styles.tokenIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                        <Text style={[styles.tokenSymbol, { color: theme.colors.primary }]}>{launch.symbol}</Text>
+                        <AppText style={[styles.tokenSymbol, { color: theme.colors.primary }]}>{launch.symbol}</AppText>
                       </View>
                       <View style={styles.launchInfo}>
-                        <Text style={[styles.launchName, { color: theme.colors.text }]}>{launch.name}</Text>
-                        <Text style={[styles.launchDescription, { color: theme.colors.muted }]}>{launch.description}</Text>
-                        <Text style={[styles.launchDate, { color: theme.colors.muted }]}>Launched {launch.launchDate}</Text>
+                        <AppText style={[styles.launchName, { color: theme.colors.text }]}>{launch.name}</AppText>
+                        <AppText style={[styles.launchDescription, { color: theme.colors.muted }]}>{launch.description}</AppText>
+                        <AppText style={[styles.launchDate, { color: theme.colors.muted }]}>Launched {launch.launchDate}</AppText>
                       </View>
                     </View>
                     <View style={styles.launchRight}>
-                      <Text style={[styles.launchVolume, { color: theme.colors.text }]}>{launch.volume24h}</Text>
-                      <Text style={[
+                      <AppText style={[styles.launchVolume, { color: theme.colors.text }]}>{launch.volume24h}</AppText>
+                      <AppText style={[
                         styles.launchChange, 
                         { color: launch.isPositive ? theme.colors.success : theme.colors.error }
                       ]}>
                         {launch.priceChange}
-                      </Text>
+                </AppText>
                     </View>
                   </View>
                   
@@ -295,17 +448,17 @@ export default function HomeScreen() {
                     {launch.transferHookEnabled && (
                       <View style={[styles.featureBadge, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
                         <Ionicons name="link" size={12} color={theme.colors.primary} />
-                        <Text style={[styles.featureText, { color: theme.colors.primary }]}>Transfer Hooks</Text>
+                        <AppText style={[styles.featureText, { color: theme.colors.primary }]}>Transfer Hooks</AppText>
                       </View>
                     )}
                     {launch.confidentialTransferEnabled && (
                       <View style={[styles.featureBadge, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
                         <Ionicons name="eye-off" size={12} color={theme.colors.success} />
-                        <Text style={[styles.featureText, { color: theme.colors.success }]}>Confidential</Text>
+                        <AppText style={[styles.featureText, { color: theme.colors.success }]}>Confidential</AppText>
                       </View>
                     )}
                   </View>
-                </TouchableOpacity>
+              </TouchableOpacity>
               </View>
             ))}
           </View>
@@ -313,39 +466,39 @@ export default function HomeScreen() {
 
         {/* Token-2022 Features Highlight */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Token-2022 Features</Text>
+          <AppText style={[styles.sectionTitle, { color: theme.colors.text }]}>Token-2022 Features</AppText>
           
           <View style={styles.featuresGrid}>
             <View style={[styles.featureCard, { backgroundColor: theme.colors.card }]}>
               <View style={[styles.featureIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
                 <Ionicons name="link" size={24} color={theme.colors.primary} />
               </View>
-              <Text style={[styles.featureTitle, { color: theme.colors.text }]}>Transfer Hooks</Text>
-              <Text style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Custom transfer logic with pre-transfer simulation</Text>
+              <AppText style={[styles.featureTitle, { color: theme.colors.text }]}>Transfer Hooks</AppText>
+              <AppText style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Custom transfer logic with pre-transfer simulation</AppText>
             </View>
 
             <View style={[styles.featureCard, { backgroundColor: theme.colors.card }]}>
               <View style={[styles.featureIcon, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
                 <Ionicons name="eye-off" size={24} color={theme.colors.success} />
               </View>
-              <Text style={[styles.featureTitle, { color: theme.colors.text }]}>Confidential Transfers</Text>
-              <Text style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Private, encrypted token transfers</Text>
+              <AppText style={[styles.featureTitle, { color: theme.colors.text }]}>Confidential Transfers</AppText>
+              <AppText style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Private, encrypted token transfers</AppText>
             </View>
 
             <View style={[styles.featureCard, { backgroundColor: theme.colors.card }]}>
               <View style={[styles.featureIcon, { backgroundColor: 'rgba(251, 191, 36, 0.1)' }]}>
                 <Ionicons name="shield-checkmark" size={24} color={theme.colors.warning} />
               </View>
-              <Text style={[styles.featureTitle, { color: theme.colors.text }]}>Safe Hook Approval</Text>
-              <Text style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Permissionless but safe hook approval system</Text>
+              <AppText style={[styles.featureTitle, { color: theme.colors.text }]}>Safe Hook Approval</AppText>
+              <AppText style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Permissionless but safe hook approval system</AppText>
             </View>
 
             <View style={[styles.featureCard, { backgroundColor: theme.colors.card }]}>
               <View style={[styles.featureIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
                 <Ionicons name="swap-horizontal" size={24} color={theme.colors.error} />
               </View>
-              <Text style={[styles.featureTitle, { color: theme.colors.text }]}>AMM Integration</Text>
-              <Text style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Direct integration with existing AMM protocols</Text>
+              <AppText style={[styles.featureTitle, { color: theme.colors.text }]}>AMM Integration</AppText>
+              <AppText style={[styles.featureSubtitle, { color: theme.colors.muted }]}>Direct integration with existing AMM protocols</AppText>
             </View>
           </View>
         </View>
@@ -368,12 +521,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 150, // Increased bottom padding to clear the navbar
   },
   header: {
     paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 32, // Increased bottom padding to prevent text cutting
   },
   headerTop: {
     flexDirection: 'row',
@@ -386,10 +539,11 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   greeting: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: 32,
     fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 40, // Added proper line height
+    marginBottom: 8,
+    paddingVertical: 4, // Added padding to prevent cutting
   },
   subtitle: {
     fontSize: 16,
@@ -422,9 +576,8 @@ const styles = StyleSheet.create({
   },
   walletTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginBottom: 2,
   },
   walletAddress: {
     fontSize: 12,
@@ -438,10 +591,23 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     fontFamily: 'SpaceGrotesk-Regular',
   },
+  balanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  refreshButton: {
+    padding: 4,
+  },
   balanceAmount: {
     fontSize: 24,
-    fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
+  },
+  solBalance: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk-Regular',
+    marginTop: 2,
   },
   walletActions: {
     flexDirection: 'row',
@@ -458,9 +624,8 @@ const styles = StyleSheet.create({
   },
   airdropText: {
     fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginLeft: 6,
   },
   sampleButton: {
     flexDirection: 'row',
@@ -471,15 +636,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
-  sampleButtonText: {
+  sampleText: {
     fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginLeft: 6,
   },
   section: {
-    paddingHorizontal: 20,
     marginBottom: 24,
+    paddingHorizontal: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -488,13 +652,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
     fontFamily: 'SpaceGrotesk-Bold',
+    lineHeight: 28, // Added proper line height
+    paddingVertical: 3, // Added padding to prevent cutting
   },
   seeAllText: {
     fontSize: 14,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   marketGrid: {
@@ -515,31 +679,28 @@ const styles = StyleSheet.create({
   marketCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   marketCardTitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginLeft: 6,
+    fontSize: 14,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginLeft: 8,
   },
   marketCardValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: 20,
     fontFamily: 'SpaceGrotesk-Bold',
+    marginBottom: 4,
   },
   marketCardChange: {
     fontSize: 12,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   launchesList: {
     gap: 12,
   },
   launchItem: {
-    padding: 16,
     borderRadius: 12,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -549,7 +710,7 @@ const styles = StyleSheet.create({
   launchHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
   launchLeft: {
@@ -567,7 +728,6 @@ const styles = StyleSheet.create({
   },
   tokenSymbol: {
     fontSize: 16,
-    fontWeight: 'bold',
     fontFamily: 'SpaceGrotesk-Bold',
   },
   launchInfo: {
@@ -575,9 +735,8 @@ const styles = StyleSheet.create({
   },
   launchName: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginBottom: 2,
   },
   launchDescription: {
     fontSize: 12,
@@ -593,13 +752,11 @@ const styles = StyleSheet.create({
   },
   launchVolume: {
     fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginBottom: 2,
   },
   launchChange: {
     fontSize: 12,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk-SemiBold',
   },
   launchFeatures: {
@@ -615,9 +772,8 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 10,
-    fontWeight: '500',
-    marginLeft: 4,
     fontFamily: 'SpaceGrotesk-SemiBold',
+    marginLeft: 4,
   },
   featuresGrid: {
     flexDirection: 'row',
@@ -645,10 +801,9 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk-SemiBold',
     marginBottom: 4,
     textAlign: 'center',
-    fontFamily: 'SpaceGrotesk-SemiBold',
   },
   featureSubtitle: {
     fontSize: 12,

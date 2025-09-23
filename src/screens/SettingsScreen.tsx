@@ -105,7 +105,7 @@ const SettingsScreen: React.FC = () => {
         {
           id: 'rpc-endpoint',
           title: 'RPC Endpoint',
-          subtitle: 'https://api.devnet.solana.com',
+          subtitle: 'https://api.mainnet-beta.solana.com',
           icon: 'server',
           action: 'none',
         },

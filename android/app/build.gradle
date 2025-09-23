@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.nisargxplores.web3jsexpo'
+    namespace 'com.dex2.app'
     defaultConfig {
-        applicationId 'com.nisargxplores.web3jsexpo'
+        applicationId 'com.dex2.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

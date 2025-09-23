@@ -2,26 +2,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 
 const WelcomeScreen: React.FC = () => {
-  const { connectWallet, isLoading, error } = useApp();
+  const { connectWallet, loading } = useApp();
   const [privateKey, setPrivateKey] = useState('');
   const [showPrivateKeyInput, setShowPrivateKeyInput] = useState(false);
 
   const handleConnectWallet = async () => {
     try {
       await connectWallet();
-    } catch (err) {
+    } catch (error) {
       Alert.alert('Error', 'Failed to connect wallet');
     }
   };
@@ -33,10 +33,10 @@ const WelcomeScreen: React.FC = () => {
     }
 
     try {
-      await connectWallet(privateKey.trim());
+      await connectWallet();
       setPrivateKey('');
       setShowPrivateKeyInput(false);
-    } catch (err) {
+    } catch (error) {
       Alert.alert('Error', 'Invalid private key');
     }
   };
@@ -108,10 +108,10 @@ const WelcomeScreen: React.FC = () => {
                   <TouchableOpacity
                     style={[styles.button, styles.primaryButton]}
                     onPress={handleImportWallet}
-                    disabled={isLoading}
+                    disabled={loading}
                   >
                     <Text style={styles.primaryButtonText}>
-                      {isLoading ? 'Importing...' : 'Import Wallet'}
+                      {loading ? 'Importing...' : 'Import Wallet'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -121,11 +121,11 @@ const WelcomeScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[styles.button, styles.primaryButton]}
                   onPress={handleConnectWallet}
-                  disabled={isLoading}
+                  disabled={loading}
                 >
                   <Ionicons name="wallet" size={20} color="#ffffff" />
                   <Text style={styles.primaryButtonText}>
-                    {isLoading ? 'Connecting...' : 'Connect Demo Wallet'}
+                    {loading ? 'Connecting...' : 'Connect Demo Wallet'}
                   </Text>
                 </TouchableOpacity>
 

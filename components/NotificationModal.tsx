@@ -3,12 +3,12 @@ import { Notification, useNotifications } from '@/src/context/NotificationContex
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface NotificationModalProps {
@@ -191,7 +191,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             </View>
             <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No notifications</Text>
             <Text style={[styles.emptyStateText, { color: theme.colors.muted }]}>
-              You're all caught up! New notifications will appear here.
+              You&apos;re all caught up! New notifications will appear here.
             </Text>
           </View>
         )}

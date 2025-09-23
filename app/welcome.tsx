@@ -1,9 +1,9 @@
 import { useAppTheme } from '@/components/app-theme';
 import { AppView } from '@/components/app-view';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useRef, useState } from 'react';
 import {
     Dimensions,
@@ -14,7 +14,7 @@ import {
     View
 } from 'react-native';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface WelcomeSlide {
   id: number;
@@ -23,7 +23,7 @@ interface WelcomeSlide {
   description: string;
   icon: string;
   iconColor: string;
-  gradient: string[];
+  gradient: [string, string, string];
 }
 
 const welcomeSlides: WelcomeSlide[] = [
@@ -65,7 +65,7 @@ const welcomeSlides: WelcomeSlide[] = [
   },
 ];
 
-const WelcomeSlide = ({ slide, isActive }: { slide: WelcomeSlide; isActive: boolean }) => {
+const WelcomeSlideComponent = ({ slide, isActive }: { slide: WelcomeSlide; isActive: boolean }) => {
   const { theme } = useAppTheme();
 
   return (
@@ -199,7 +199,7 @@ export default function WelcomeScreen() {
         style={styles.scrollView}
       >
         {welcomeSlides.map((slide) => (
-          <WelcomeSlide key={slide.id} slide={slide} isActive={currentSlide === slide.id - 1} />
+          <WelcomeSlideComponent key={slide.id} slide={slide} isActive={currentSlide === slide.id - 1} />
         ))}
       </ScrollView>
 

@@ -1,458 +1,515 @@
 import {
-    ConfidentialTransferAccount,
-    ConfidentialTransferMint,
-    MetadataPointer,
-    Mint,
-    TOKEN_2022_PROGRAM_ID,
-    Account as TokenAccount,
-    createApproveAccountInstruction,
-    createAssociatedTokenAccountInstruction,
-    createBurnInstruction,
-    createConfidentialTransferInstruction,
-    createInitializeAccount3Instruction,
-    createInitializeConfidentialTransferInstruction,
-    createMintToInstruction,
-    createSetMetadataPointerInstruction,
-    createTransferInstruction,
-    getAccount,
-    getAssociatedTokenAddress
+  TOKEN_2022_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+  createInitializeMint2Instruction,
+  createMintToInstruction,
+  getAssociatedTokenAddress,
+  getMinimumBalanceForRentExemptMint
 } from '@solana/spl-token';
-import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction } from '@solana/web3.js';
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+} from '@solana/web3.js';
+import { WalletService } from './WalletService';
 
 export interface Token2022Mint {
   mint: PublicKey;
   decimals: number;
-  supply: bigint;
-  mintAuthority: PublicKey | null;
-  freezeAuthority: PublicKey | null;
-  transferHookProgramId: PublicKey | null;
-  confidentialTransferMint: ConfidentialTransferMint | null;
-  metadataPointer: MetadataPointer | null;
-}
-
-export interface Token2022Account {
-  mint: PublicKey;
-  owner: PublicKey;
-  amount: bigint;
-  delegate: PublicKey | null;
-  state: number;
-  isNative: bigint | null;
-  delegatedAmount: bigint;
-  closeAuthority: PublicKey | null;
-  transferHookProgramId: PublicKey | null;
-  confidentialTransferAccount: ConfidentialTransferAccount | null;
-}
-
-export interface TransferHookData {
-  source: PublicKey;
-  destination: PublicKey;
-  amount: bigint;
+  supply: number;
   authority: PublicKey;
+  freezeAuthority: PublicKey | null;
+  transferHook?: PublicKey;
+}
+
+export interface TransferHookConfig {
   programId: PublicKey;
+  authority: PublicKey;
+  data?: Buffer;
 }
 
 export class Token2022Service {
   private connection: Connection;
-  private programId: PublicKey;
+  private walletService: WalletService;
 
-  constructor(connection: Connection, programId: PublicKey = TOKEN_2022_PROGRAM_ID) {
+  constructor(connection: Connection, walletService: WalletService) {
     this.connection = connection;
-    this.programId = programId;
+    this.walletService = walletService;
   }
 
   /**
-   * Initialize a new Token-2022 mint with advanced features
+   * Initialize a new Token-2022 mint with Transfer Hook support
+   */
+  async initializeMintWithTransferHook(
+    payer: Keypair,
+    decimals: number,
+    supply: number,
+    transferHookConfig?: TransferHookConfig
+  ): Promise<PublicKey> {
+    try {
+      console.log('Creating Token-2022 mint with Transfer Hook:', { decimals, supply, transferHookConfig });
+      
+      // Check wallet balance first
+      const balance = await this.connection.getBalance(payer.publicKey);
+      const mintRent = await getMinimumBalanceForRentExemptMint(this.connection);
+      const estimatedFee = 5000; // Estimated transaction fee in lamports
+      const totalRequired = mintRent + estimatedFee;
+      
+      console.log('Balance check:', {
+        currentBalance: balance,
+        mintRent: mintRent,
+        estimatedFee: estimatedFee,
+        totalRequired: totalRequired,
+        hasEnoughBalance: balance >= totalRequired
+      });
+      
+      if (balance < totalRequired) {
+        throw new Error(`Insufficient SOL balance. Required: ${totalRequired / 1e9} SOL, Available: ${balance / 1e9} SOL. Please request an airdrop first.`);
+      }
+      
+      // Generate mint keypair
+      const mint = Keypair.generate();
+      
+      // Create mint account instruction
+      const createMintAccountInstruction = SystemProgram.createAccount({
+        fromPubkey: payer.publicKey,
+        newAccountPubkey: mint.publicKey,
+        space: 82, // Standard mint size
+        lamports: mintRent,
+        programId: TOKEN_2022_PROGRAM_ID,
+      });
+      
+      // Initialize mint instruction
+      const initializeMintInstruction = createInitializeMint2Instruction(
+        mint.publicKey,
+        decimals,
+        payer.publicKey,
+        payer.publicKey, // freeze authority (same as mint authority)
+        TOKEN_2022_PROGRAM_ID
+      );
+      
+      // Create transaction
+      const transaction = new Transaction();
+      transaction.add(createMintAccountInstruction);
+      transaction.add(initializeMintInstruction);
+      
+      // Note: Transfer Hook initialization will be handled separately
+      // as the current SPL Token library doesn't support it directly
+      if (transferHookConfig) {
+        console.log('Transfer Hook configuration provided:', transferHookConfig);
+        // For now, we'll create the mint and handle Transfer Hook separately
+      }
+      
+      // Get recent blockhash
+      const { blockhash } = await this.connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = payer.publicKey;
+      
+      // Sign and send transaction
+      const signature = await sendAndConfirmTransaction(
+        this.connection,
+        transaction,
+        [payer, mint]
+      );
+      
+      console.log('Token-2022 mint created successfully:', {
+        mint: mint.publicKey.toString(),
+        signature: signature,
+        decimals: decimals,
+        hasTransferHook: !!transferHookConfig
+      });
+      
+      return mint.publicKey;
+    } catch (error) {
+      console.error('Error creating Token-2022 mint with Transfer Hook:', error);
+      throw new Error(`Failed to create Token-2022 mint with Transfer Hook: ${error}`);
+    }
+  }
+
+  /**
+   * Initialize a new Token-2022 mint (basic version - for backward compatibility)
    */
   async initializeMint(
     payer: Keypair,
-    mint: Keypair,
     decimals: number,
-    mintAuthority: PublicKey,
-    freezeAuthority: PublicKey | null = null,
-    transferHookProgramId: PublicKey | null = null,
-    confidentialTransferMint: ConfidentialTransferMint | null = null,
-    metadataPointer: MetadataPointer | null = null,
-  ): Promise<string> {
-    const transaction = new Transaction();
-
-    // Create mint account
-    const createAccountIx = await this.createMintAccountInstruction(
-      payer.publicKey,
-      mint.publicKey,
-      decimals,
-      mintAuthority,
-      freezeAuthority,
-      transferHookProgramId,
-      confidentialTransferMint,
-      metadataPointer,
-    );
-
-    transaction.add(createAccountIx);
-
-    // Send transaction
-    const signature = await sendAndConfirmTransaction(
-      this.connection,
-      transaction,
-      [payer, mint],
-      { commitment: 'confirmed' }
-    );
-
-    return signature;
+    supply: number
+  ): Promise<PublicKey> {
+    return this.initializeMintWithTransferHook(payer, decimals, supply);
   }
 
   /**
-   * Create a Token-2022 account with transfer hook support
-   */
-  async createTokenAccount(
-    payer: Keypair,
-    mint: PublicKey,
-    owner: PublicKey,
-  ): Promise<{ account: PublicKey; signature: string }> {
-    const associatedTokenAddress = await getAssociatedTokenAddress(
-      mint,
-      owner,
-      false,
-      this.programId
-    );
-
-    const transaction = new Transaction();
-
-    // Create associated token account
-    const createAccountIx = createAssociatedTokenAccountInstruction(
-      payer.publicKey,
-      associatedTokenAddress,
-      owner,
-      mint,
-      this.programId
-    );
-
-    transaction.add(createAccountIx);
-
-    // Initialize account with Token-2022 extensions
-    const initializeIx = createInitializeAccount3Instruction(
-      associatedTokenAddress,
-      mint,
-      owner,
-      this.programId
-    );
-
-    transaction.add(initializeIx);
-
-    const signature = await sendAndConfirmTransaction(
-      this.connection,
-      transaction,
-      [payer],
-      { commitment: 'confirmed' }
-    );
-
-    return { account: associatedTokenAddress, signature };
-  }
-
-  /**
-   * Transfer tokens with custom transfer hook logic
-   */
-  async transferWithHook(
-    payer: Keypair,
-    source: PublicKey,
-    destination: PublicKey,
-    authority: Keypair,
-    amount: bigint,
-    mint: PublicKey,
-  ): Promise<string> {
-    const transaction = new Transaction();
-
-    const transferIx = createTransferInstruction(
-      source,
-      destination,
-      authority.publicKey,
-      amount,
-      [],
-      this.programId
-    );
-
-    transaction.add(transferIx);
-
-    const signature = await sendAndConfirmTransaction(
-      this.connection,
-      transaction,
-      [payer, authority],
-      { commitment: 'confirmed' }
-    );
-
-    return signature;
-  }
-
-  /**
-   * Enable confidential transfers for a token account
-   */
-  async enableConfidentialTransfers(
-    payer: Keypair,
-    account: PublicKey,
-    mint: PublicKey,
-    authority: Keypair,
-    confidentialTransferMint: ConfidentialTransferMint,
-  ): Promise<string> {
-    const transaction = new Transaction();
-
-    // Initialize confidential transfer account
-    const initConfidentialIx = createInitializeConfidentialTransferInstruction(
-      account,
-      mint,
-      confidentialTransferMint,
-      this.programId
-    );
-
-    transaction.add(initConfidentialIx);
-
-    // Approve account for confidential transfers
-    const approveIx = createApproveAccountInstruction(
-      account,
-      mint,
-      authority.publicKey,
-      confidentialTransferMint,
-      this.programId
-    );
-
-    transaction.add(approveIx);
-
-    const signature = await sendAndConfirmTransaction(
-      this.connection,
-      transaction,
-      [payer, authority],
-      { commitment: 'confirmed' }
-    );
-
-    return signature;
-  }
-
-  /**
-   * Perform a confidential transfer
-   */
-  async confidentialTransfer(
-    payer: Keypair,
-    source: PublicKey,
-    destination: PublicKey,
-    authority: Keypair,
-    amount: bigint,
-    decimals: number,
-    mint: PublicKey,
-  ): Promise<string> {
-    const transaction = new Transaction();
-
-    const confidentialTransferIx = createConfidentialTransferInstruction(
-      source,
-      destination,
-      mint,
-      authority.publicKey,
-      amount,
-      decimals,
-      this.programId
-    );
-
-    transaction.add(confidentialTransferIx);
-
-    const signature = await sendAndConfirmTransaction(
-      this.connection,
-      transaction,
-      [payer, authority],
-      { commitment: 'confirmed' }
-    );
-
-    return signature;
-  }
-
-  /**
-   * Set metadata pointer for dynamic metadata
-   */
-  async setMetadataPointer(
-    payer: Keypair,
-    mint: PublicKey,
-    authority: Keypair,
-    metadataPointer: MetadataPointer,
-  ): Promise<string> {
-    const transaction = new Transaction();
-
-    const setMetadataIx = createSetMetadataPointerInstruction(
-      mint,
-      authority.publicKey,
-      metadataPointer,
-      this.programId
-    );
-
-    transaction.add(setMetadataIx);
-
-    const signature = await sendAndConfirmTransaction(
-      this.connection,
-      transaction,
-      [payer, authority],
-      { commitment: 'confirmed' }
-    );
-
-    return signature;
-  }
-
-  /**
-   * Mint tokens to an account
+   * Mint tokens to a specific address
    */
   async mintTo(
     payer: Keypair,
     mint: PublicKey,
-    destination: PublicKey,
-    authority: Keypair,
-    amount: bigint,
+    recipient: PublicKey,
+    amount: number
   ): Promise<string> {
-    const transaction = new Transaction();
-
-    const mintToIx = createMintToInstruction(
-      mint,
-      destination,
-      authority.publicKey,
-      amount,
-      [],
-      this.programId
-    );
-
-    transaction.add(mintToIx);
-
-    const signature = await sendAndConfirmTransaction(
-      this.connection,
-      transaction,
-      [payer, authority],
-      { commitment: 'confirmed' }
-    );
-
-    return signature;
-  }
-
-  /**
-   * Burn tokens from an account
-   */
-  async burn(
-    payer: Keypair,
-    mint: PublicKey,
-    account: PublicKey,
-    authority: Keypair,
-    amount: bigint,
-  ): Promise<string> {
-    const transaction = new Transaction();
-
-    const burnIx = createBurnInstruction(
-      account,
-      mint,
-      authority.publicKey,
-      amount,
-      [],
-      this.programId
-    );
-
-    transaction.add(burnIx);
-
-    const signature = await sendAndConfirmTransaction(
-      this.connection,
-      transaction,
-      [payer, authority],
-      { commitment: 'confirmed' }
-    );
-
-    return signature;
-  }
-
-  /**
-   * Get Token-2022 mint information
-   */
-  async getMintInfo(mint: PublicKey): Promise<Token2022Mint> {
-    const mintInfo = await getAccount(this.connection, mint, 'confirmed', this.programId) as Mint;
-    
-    return {
-      mint: mintInfo.address,
-      decimals: mintInfo.decimals,
-      supply: mintInfo.supply,
-      mintAuthority: mintInfo.mintAuthority,
-      freezeAuthority: mintInfo.freezeAuthority,
-      transferHookProgramId: mintInfo.transferHookProgramId,
-      confidentialTransferMint: mintInfo.confidentialTransferMint,
-      metadataPointer: mintInfo.metadataPointer,
-    };
-  }
-
-  /**
-   * Get Token-2022 account information
-   */
-  async getAccountInfo(account: PublicKey): Promise<Token2022Account> {
-    const accountInfo = await getAccount(this.connection, account, 'confirmed', this.programId) as TokenAccount;
-    
-    return {
-      mint: accountInfo.mint,
-      owner: accountInfo.owner,
-      amount: accountInfo.amount,
-      delegate: accountInfo.delegate,
-      state: accountInfo.state,
-      isNative: accountInfo.isNative,
-      delegatedAmount: accountInfo.delegatedAmount,
-      closeAuthority: accountInfo.closeAuthority,
-      transferHookProgramId: accountInfo.transferHookProgramId,
-      confidentialTransferAccount: accountInfo.confidentialTransferAccount,
-    };
-  }
-
-  /**
-   * Get all Token-2022 accounts for a wallet
-   */
-  async getTokenAccounts(wallet: PublicKey): Promise<Token2022Account[]> {
-    const accounts = await this.connection.getTokenAccountsByOwner(
-      wallet,
-      { programId: this.programId },
-      'confirmed'
-    );
-
-    const tokenAccounts: Token2022Account[] = [];
-    
-    for (const { pubkey, account } of accounts.value) {
-      try {
-        const accountInfo = await this.getAccountInfo(pubkey);
-        tokenAccounts.push(accountInfo);
-      } catch (error) {
-        console.warn(`Failed to parse account ${pubkey.toString()}:`, error);
+    try {
+      // Get or create associated token account
+      const tokenAccount = await getAssociatedTokenAddress(
+        mint,
+        recipient,
+        false,
+        TOKEN_2022_PROGRAM_ID
+      );
+      
+      // Check if token account exists
+      const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccount);
+      
+      const transaction = new Transaction();
+      
+      // Create token account if it doesn't exist
+      if (!tokenAccountInfo) {
+        const createAccountInstruction = createAssociatedTokenAccountInstruction(
+          payer.publicKey,
+          tokenAccount,
+          recipient,
+          mint,
+          TOKEN_2022_PROGRAM_ID
+        );
+        transaction.add(createAccountInstruction);
       }
+      
+      // Mint tokens
+      const mintToInstruction = createMintToInstruction(
+        mint,
+        tokenAccount,
+        payer.publicKey,
+        amount,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      );
+      transaction.add(mintToInstruction);
+      
+      // Get recent blockhash
+      const { blockhash } = await this.connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = payer.publicKey;
+      
+      // Sign and send transaction
+      const signature = await sendAndConfirmTransaction(
+        this.connection,
+        transaction,
+        [payer]
+      );
+      
+      console.log('Tokens minted successfully:', {
+        mint: mint.toString(),
+        recipient: recipient.toString(),
+        amount: amount,
+        signature: signature
+      });
+      
+      return signature;
+    } catch (error) {
+      console.error('Error minting tokens:', error);
+      throw new Error(`Failed to mint tokens: ${error}`);
+    }
+  }
+
+  /**
+   * Get mint information
+   */
+  async getMintInfo(mint: PublicKey): Promise<Token2022Mint | null> {
+    try {
+      const accountInfo = await this.connection.getAccountInfo(mint);
+      if (!accountInfo) return null;
+      
+      // Parse mint data (simplified)
+      const data = accountInfo.data;
+      
+      return {
+        mint: mint,
+        decimals: data[44],
+        supply: Number(data.readBigUInt64LE(36)),
+        authority: new PublicKey(data.slice(0, 32)),
+        freezeAuthority: data[45] === 1 ? new PublicKey(data.slice(32, 64)) : null,
+      };
+    } catch (error) {
+      console.error('Error getting mint info:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Initialize a new Token-2022 mint using the user's wallet for signing
+   */
+  async initializeMintWithWallet(
+    walletPublicKey: PublicKey,
+    decimals: number,
+    supply: number
+  ): Promise<PublicKey> {
+    try {
+      console.log('Creating Token-2022 mint with wallet:', { decimals, supply, walletPublicKey: walletPublicKey.toString() });
+      
+      // Check wallet balance first
+      const balance = await this.connection.getBalance(walletPublicKey);
+      const mintRent = await getMinimumBalanceForRentExemptMint(this.connection);
+      const estimatedFee = 5000; // Estimated transaction fee in lamports
+      const totalRequired = mintRent + estimatedFee;
+      
+      console.log('Balance check:', {
+        currentBalance: balance,
+        mintRent: mintRent,
+        estimatedFee: estimatedFee,
+        totalRequired: totalRequired,
+        hasEnoughBalance: balance >= totalRequired
+      });
+      
+      if (balance < totalRequired) {
+        throw new Error(`Insufficient SOL balance. Required: ${totalRequired / 1e9} SOL, Available: ${balance / 1e9} SOL. Please request an airdrop first.`);
+      }
+      
+      // Generate mint keypair
+      const mint = Keypair.generate();
+      
+      // Create mint account instruction
+      const createMintAccountInstruction = SystemProgram.createAccount({
+        fromPubkey: walletPublicKey,
+        newAccountPubkey: mint.publicKey,
+        space: 82, // Standard mint size
+        lamports: mintRent,
+        programId: TOKEN_2022_PROGRAM_ID,
+      });
+      
+      // Initialize mint instruction
+      const initializeMintInstruction = createInitializeMint2Instruction(
+        mint.publicKey,
+        decimals,
+        walletPublicKey,
+        walletPublicKey, // freeze authority (same as mint authority)
+        TOKEN_2022_PROGRAM_ID
+      );
+      
+      // Create transaction
+      const transaction = new Transaction();
+      transaction.add(createMintAccountInstruction);
+      transaction.add(initializeMintInstruction);
+      
+      // Get recent blockhash
+      const { blockhash } = await this.connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = walletPublicKey;
+      
+      // This will trigger the wallet to sign the transaction
+      // The wallet service will handle the signing
+      const signature = await this.walletService.sendTransaction(transaction);
+      
+      console.log('Token-2022 mint created successfully with wallet:', {
+        mint: mint.publicKey.toString(),
+        signature: signature
+      });
+      
+      return mint.publicKey;
+    } catch (error) {
+      console.error('Error creating Token-2022 mint with wallet:', error);
+      throw new Error(`Failed to create Token-2022 mint with wallet: ${error}`);
+    }
+  }
+
+  /**
+   * Mint tokens using the user's wallet for signing
+   */
+  async mintToWithWallet(
+    walletPublicKey: PublicKey,
+    mint: PublicKey,
+    destination: PublicKey,
+    amount: number
+  ): Promise<string> {
+    try {
+      console.log('Minting tokens with wallet:', { mint: mint.toString(), destination: destination.toString(), amount });
+      
+      // Get or create associated token account
+      const tokenAccount = await getAssociatedTokenAddress(
+        mint,
+        destination,
+        false,
+        TOKEN_2022_PROGRAM_ID
+      );
+      
+      // Check if token account exists
+      const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccount);
+      
+      const transaction = new Transaction();
+      
+      // Create token account if it doesn't exist
+      if (!tokenAccountInfo) {
+        const createAccountInstruction = createAssociatedTokenAccountInstruction(
+          walletPublicKey,
+          tokenAccount,
+          destination,
+          mint,
+          TOKEN_2022_PROGRAM_ID
+        );
+        transaction.add(createAccountInstruction);
+      }
+      
+      // Mint tokens instruction
+      const mintInstruction = createMintToInstruction(
+        mint,
+        tokenAccount,
+        walletPublicKey,
+        amount,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      );
+      transaction.add(mintInstruction);
+      
+      // Send transaction using wallet service
+      const signature = await this.walletService.sendTransaction(transaction);
+      
+      console.log('Tokens minted successfully with wallet:', signature);
+      return signature;
+    } catch (error) {
+      console.error('Error minting tokens with wallet:', error);
+      throw new Error(`Failed to mint tokens with wallet: ${error}`);
+    }
+  }
+
+  /**
+   * Initialize a new Token-2022 mint with Transfer Hook using the user's wallet for signing
+   */
+  async initializeMintWithTransferHookAndWallet(
+    walletPublicKey: PublicKey,
+    decimals: number,
+    supply: number,
+    transferHookConfig?: TransferHookConfig
+  ): Promise<{ mint: PublicKey; signature: string }> {
+    console.log('🔍 initializeMintWithTransferHookAndWallet called with:', {
+      walletPublicKey: walletPublicKey.toString(),
+      decimals,
+      supply,
+      transferHookConfig
+    });
+
+    // Check wallet service connection status
+    console.log('🔍 Wallet service connection status:', {
+      isConnected: this.walletService.isWalletConnected(),
+      publicKey: this.walletService.getPublicKey()?.toString(),
+      authToken: this.walletService.getAuthToken() ? 'Present' : 'Missing'
+    });
+
+    // Check balance before proceeding
+    const balance = await this.connection.getBalance(walletPublicKey);
+    const requiredBalance = 0.0014666 * 1e9; // Convert to lamports
+    
+    console.log('🔍 Balance check:', {
+      currentBalance: balance / 1e9,
+      requiredBalance: requiredBalance / 1e9,
+      sufficient: balance >= requiredBalance
+    });
+    
+    if (balance < requiredBalance) {
+      throw new Error(`Insufficient SOL balance. Required: ${requiredBalance / 1e9} SOL, Available: ${balance / 1e9} SOL. Please request an airdrop first.`);
     }
 
-    return tokenAccounts;
-  }
-
-  /**
-   * Create mint account instruction with Token-2022 extensions
-   */
-  private async createMintAccountInstruction(
-    payer: PublicKey,
-    mint: PublicKey,
-    decimals: number,
-    mintAuthority: PublicKey,
-    freezeAuthority: PublicKey | null,
-    transferHookProgramId: PublicKey | null,
-    confidentialTransferMint: ConfidentialTransferMint | null,
-    metadataPointer: MetadataPointer | null,
-  ) {
-    // This is a simplified version - in practice, you'd need to handle the complex initialization
-    // of Token-2022 mints with extensions
-    throw new Error('Complex mint initialization not implemented in this example');
-  }
-
-  /**
-   * Get Token-2022 program ID
-   */
-  getProgramId(): PublicKey {
-    return this.programId;
-  }
-
-  /**
-   * Check if an account supports Token-2022 features
-   */
-  async supportsToken2022(account: PublicKey): Promise<boolean> {
     try {
-      await getAccount(this.connection, account, 'confirmed', this.programId);
-      return true;
-    } catch {
-      return false;
+      // Generate a new mint keypair
+      const mintKeypair = Keypair.generate();
+      console.log('🔍 Generated mint keypair:', mintKeypair.publicKey.toString());
+
+      // Create the mint account
+      const mintAccount = await getAssociatedTokenAddress(
+        mintKeypair.publicKey,
+        walletPublicKey,
+        false,
+        TOKEN_2022_PROGRAM_ID
+      );
+      console.log('🔍 Mint account address:', mintAccount.toString());
+
+      // Build the transaction
+      const transaction = new Transaction();
+      console.log('🔍 Building transaction...');
+
+      // Get minimum balance for rent exemption for mint account
+      const mintRentExemption = await this.connection.getMinimumBalanceForRentExemption(82);
+      console.log('🔍 Mint rent exemption:', mintRentExemption / 1e9, 'SOL');
+
+      // Add create mint account instruction
+      const { SystemProgram } = await import('@solana/web3.js');
+      const createAccountIx = SystemProgram.createAccount({
+        fromPubkey: walletPublicKey,
+        newAccountPubkey: mintKeypair.publicKey,
+        space: 82, // Size for Token-2022 mint account
+        lamports: mintRentExemption,
+        programId: TOKEN_2022_PROGRAM_ID,
+      });
+      transaction.add(createAccountIx);
+      console.log('🔍 Added create mint account instruction');
+
+      // Add mint initialization instruction
+      const initializeMintIx = createInitializeMint2Instruction(
+        mintKeypair.publicKey,
+        decimals,
+        walletPublicKey,
+        walletPublicKey,
+        TOKEN_2022_PROGRAM_ID
+      );
+      transaction.add(initializeMintIx);
+      console.log('🔍 Added initialize mint instruction');
+
+      // Note: Transfer Hook initialization is not fully supported in current SPL Token library
+      // This would need to be implemented separately with custom instructions
+      if (transferHookConfig) {
+        console.log('🔍 Transfer hook config provided:', {
+          programId: transferHookConfig.programId.toString(),
+          authority: transferHookConfig.authority.toString()
+        });
+        // TODO: Add custom Transfer Hook extension instructions when available
+      }
+
+      // Add create associated token account instruction
+      const createAtaIx = createAssociatedTokenAccountInstruction(
+        walletPublicKey,
+        mintAccount,
+        walletPublicKey,
+        mintKeypair.publicKey,
+        TOKEN_2022_PROGRAM_ID
+      );
+      transaction.add(createAtaIx);
+      console.log('🔍 Added create ATA instruction');
+
+      // Add mint to instruction
+      const mintToIx = createMintToInstruction(
+        mintKeypair.publicKey,
+        mintAccount,
+        walletPublicKey,
+        supply * Math.pow(10, decimals),
+        [],
+        TOKEN_2022_PROGRAM_ID
+      );
+      transaction.add(mintToIx);
+      console.log('🔍 Added mint to instruction');
+
+      // Set recent blockhash
+      const { blockhash } = await this.connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = walletPublicKey;
+      console.log('🔍 Set recent blockhash and fee payer');
+
+      // This will trigger the wallet to sign the transaction
+      // The wallet service will handle the signing, and we need to add the mint keypair as additional signer
+      console.log('🔍 About to send transaction via wallet service...');
+      const signature = await this.walletService.sendTransaction(transaction, [mintKeypair]);
+      
+      console.log('Token-2022 mint created successfully with wallet:', {
+        mint: mintKeypair.publicKey.toString(),
+        signature,
+        wallet: walletPublicKey.toString()
+      });
+
+      return {
+        mint: mintKeypair.publicKey,
+        signature,
+      };
+    } catch (error) {
+      console.error('Error creating Token-2022 mint with Transfer Hook and wallet:', error);
+      throw error;
     }
   }
 } 

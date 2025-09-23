@@ -3,5 +3,26 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
-  }
+  },
+  "java.compile.nullAnalysis.mode": "disabled",
+  "java.configuration.runtimes": [],
+  "java.project.sourcePaths": [],
+  "java.project.outputPath": "",
+  "java.project.referencedLibraries": [],
+  "java.import.gradle.enabled": false,
+  "files.exclude": {
+    "**/node_modules/**": true,
+    "**/.expo/**": true,
+    "**/android/build/**": true,
+    "**/android/.gradle/**": true,
+    "**/ios/build/**": true
+  },
+  "search.exclude": {
+    "**/node_modules/**": true,
+    "**/.expo/**": true,
+    "**/android/build/**": true,
+    "**/android/.gradle/**": true,
+    "**/ios/build/**": true
+  },
+  "java.configuration.updateBuildConfiguration": "disabled"
 }

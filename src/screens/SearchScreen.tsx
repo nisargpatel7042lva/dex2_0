@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TokenCard from '../components/TokenCard';
@@ -166,21 +166,28 @@ const SearchScreen: React.FC = () => {
           <ActivityIndicator size="large" color="#6366f1" />
           <Text style={styles.loadingText}>Searching...</Text>
         </View>
-      ) : (
-        <FlatList
-          data={activeTab === 'tokens' ? searchResults.tokens : searchResults.pairs}
-          renderItem={activeTab === 'tokens' ? renderTokenItem : renderPairItem}
-          keyExtractor={(item) => 
-            activeTab === 'tokens' 
-              ? (item as TokenMarketData).mint.toString()
-              : (item as PairData).pairAddress
-          }
-          horizontal={activeTab === 'tokens'}
+      ) : activeTab === 'tokens' ? (
+        <FlatList<TokenMarketData>
+          data={searchResults.tokens}
+          renderItem={renderTokenItem}
+          keyExtractor={(item) => item.mint.toString()}
+          horizontal={true}
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={activeTab === 'tokens' ? styles.tokensList : styles.pairsList}
+          contentContainerStyle={styles.tokensList}
           ListEmptyComponent={renderEmptyState}
-          numColumns={activeTab === 'pairs' ? 1 : undefined}
+        />
+      ) : (
+        <FlatList<PairData>
+          data={searchResults.pairs}
+          renderItem={renderPairItem}
+          keyExtractor={(item) => item.pairAddress}
+          horizontal={false}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.pairsList}
+          ListEmptyComponent={renderEmptyState}
+          numColumns={1}
         />
       )}
     </SafeAreaView>
@@ -194,7 +201,8 @@ const styles = StyleSheet.create({
   },
   searchHeader: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 24, // Increased vertical padding to prevent text cutting
+    paddingTop: 40, // Extra top padding for status bar
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
