@@ -286,3 +286,4 @@ This is the official Solana Token-2022 program that provides advanced token feat
 ---
 
 **Note**: This is a demonstration app for Token-2022 analytics and trading. Always test thoroughly on devnet before using on mainnet.
+
